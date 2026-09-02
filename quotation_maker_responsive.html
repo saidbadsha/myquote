@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quotation Maker Pro</title>
+<style>
+:root{--bg:#f3f5f7;--card:#fff;--ink:#17202a;--muted:#667085;--line:#e4e7ec;--accent:#111827}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+.app{display:grid;grid-template-columns:440px 1fr;min-height:100vh}
+.panel{background:#fff;border-right:1px solid var(--line);padding:20px;overflow:auto}.panel h1{font-size:22px;margin:0 0 4px}.sub{font-size:12px;color:var(--muted);margin-bottom:14px}
+.tabs{display:flex;gap:6px;margin:0 -2px 15px}.tab{flex:1;border:1px solid #d0d5dd;background:#fff;border-radius:9px;padding:9px 7px;font-size:11px;font-weight:700;cursor:pointer}.tab.active{background:#111827;color:#fff}
+.tabpage{display:none}.tabpage.active{display:block}
+.section{border:1px solid var(--line);border-radius:13px;padding:14px;margin-bottom:13px}.section h2{font-size:14px;margin:0 0 11px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.full{grid-column:1/-1}
+label{font-size:10px;color:#475467;display:block;margin-bottom:4px;font-weight:700}
+input,textarea,select{width:100%;border:1px solid #d0d5dd;border-radius:8px;padding:8px 9px;font:inherit;font-size:12px;background:#fff}textarea{resize:vertical;min-height:55px}
+.items{width:100%;border-collapse:collapse}.items th{font-size:9px;color:#667085;text-align:left;padding:4px 2px}.items td{padding:3px 2px;vertical-align:middle}.items input{padding:7px 4px;font-size:10px}.items .name{min-width:125px}.items .num{width:55px}
+.del{border:0;background:#fee4e2;color:#b42318;border-radius:7px;width:27px;height:27px;cursor:pointer}.btns{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.btn{border:0;border-radius:8px;padding:9px;font-weight:700;cursor:pointer;font-size:11px}.primary{background:#111827;color:#fff}.secondary{background:#eef2f6;color:#111827}.danger{background:#fff1f0;color:#b42318}.whatsapp-btn{background:#25D366;color:#fff}
+.hint{font-size:10px;color:#667085;line-height:1.5;margin-top:7px}.status{font-size:10px;margin-top:8px;padding:8px;border-radius:7px;background:#f2f4f7;color:#475467}
+.logo-preview{height:70px;border:1px dashed #cfd4dc;border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-top:7px;font-size:11px;color:#98a2b3}.logo-preview img{max-height:65px;max-width:180px}
+.color-row{display:flex;align-items:center;gap:8px}.color-row input[type=color]{width:48px;height:36px;padding:2px}
+#quoteSearchResults{max-height:240px;overflow:auto}.invoice-result{padding:9px;border-bottom:1px solid #eaecf0;cursor:pointer;font-size:11px}.invoice-result:hover{background:#f2f4f7}
+.preview-wrap{padding:28px;display:flex;justify-content:center;align-items:flex-start;overflow:auto}.toolbar{position:fixed;right:24px;top:18px;z-index:3;display:flex;gap:7px}.toolbar button{border:0;border-radius:9px;padding:10px 13px;background:#111827;color:#fff;font-weight:700;cursor:pointer;box-shadow:0 2px 8px #0001}
+#quote{width:820px;background:#fff;box-shadow:0 8px 35px #0001;min-height:1120px;padding:48px 50px}
+.qhead{display:flex;justify-content:space-between;gap:20px;border-bottom:3px solid var(--quoteColor,#111827);padding-bottom:18px}.brand{font-size:27px;font-weight:800;letter-spacing:.4px}.brand img{max-height:58px;max-width:230px;display:block;object-fit:contain}.tag{color:#667085;font-size:11px;margin-top:4px}.qtitle{text-align:right}.qtitle h2{margin:0;font-size:27px;color:var(--quoteColor,#111827)}.qtitle div{font-size:11px;color:#667085;margin-top:5px}
+.meta{display:grid;grid-template-columns:1fr 1fr;gap:35px;padding:22px 0}.meta h4{margin:0 0 7px;font-size:10px;color:#667085;text-transform:uppercase;letter-spacing:.6px}.meta p{margin:3px 0;font-size:12px;line-height:1.45}
+.qtable{width:100%;border-collapse:collapse;margin-top:4px}.qtable th{background:var(--quoteColor,#111827);color:#fff;padding:10px 8px;font-size:10px;text-align:left}.qtable td{border-bottom:1px solid #eaecf0;padding:10px 8px;font-size:11px}.qtable .right{text-align:right}.qtable .center{text-align:center}
+.totals{margin-left:auto;width:300px;margin-top:18px}.tr{display:flex;justify-content:space-between;padding:6px 0;font-size:12px}.tr.total{border-top:2px solid var(--quoteColor,#111827);margin-top:5px;padding-top:10px;font-size:15px;font-weight:800}
+.notes{margin-top:30px;border-top:1px solid #eaecf0;padding-top:15px;font-size:10px;color:#667085;line-height:1.55}.sign{margin-top:45px;text-align:right;font-size:11px}.signline{display:inline-block;width:170px;border-top:1px solid #344054;margin-top:40px;padding-top:6px}
+@media(max-width:1100px){.app{grid-template-columns:380px 1fr}.panel{padding:16px}.preview-wrap{padding:16px}.toolbar{right:14px;top:12px}}
+@media(max-width:820px){.app{display:block}.panel{border-right:0;border-bottom:1px solid var(--line)}.preview-wrap{display:block;padding:12px;overflow-x:hidden}.toolbar{position:sticky;top:0;right:auto;justify-content:center;padding:8px;margin:-12px -12px 12px;background:rgba(243,245,247,.96);backdrop-filter:blur(6px)}#quote{width:100%;min-height:0;margin:0 auto;padding:30px 24px;box-shadow:0 4px 18px #0001}.qhead{flex-wrap:wrap}.qtitle{text-align:left;margin-left:auto}.meta{gap:16px}.totals{width:min(300px,100%)}}
+@media(max-width:560px){.panel{padding:11px}.tabs{position:sticky;top:0;z-index:4;background:#fff;padding:5px 0}.grid{grid-template-columns:1fr}.full{grid-column:1}.btns{grid-template-columns:1fr}.items-wrap{overflow-x:auto}.items{min-width:690px}.preview-wrap{padding:8px}.toolbar{margin:-8px -8px 8px;gap:5px}.toolbar button{padding:8px 9px;font-size:10px}#quote{padding:22px 16px}.qhead{display:block}.qtitle{text-align:left;margin-top:18px}.brand{font-size:22px}.qtitle h2{font-size:23px}.meta{grid-template-columns:1fr;gap:12px;padding:16px 0}.qtable{table-layout:fixed}.qtable th,.qtable td{padding:7px 5px;font-size:9px;word-break:break-word}.qtable th:nth-child(1){width:28px!important}.qtable th:nth-child(3){width:42px!important}.qtable th:nth-child(4){width:78px!important}.qtable th:nth-child(5){width:86px!important}.totals{margin-top:14px}.notes{margin-top:20px}.sign{margin-top:30px}}
+@media print{body{background:#fff}.panel,.toolbar{display:none!important}.preview-wrap{padding:0;display:block}.app{display:block}#quote{box-shadow:none;width:210mm;min-height:297mm;padding:16mm;margin:0}.qhead{display:flex}.qtitle{text-align:right;margin-top:0}.meta{grid-template-columns:1fr 1fr}.items-wrap{overflow:visible}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="panel">
+<h1>Quotation Maker Pro</h1><div class="sub">Client-ready quotation • Google Sheet sync • Invoice fetch</div>
+<div class="tabs">
+<button class="tab active" onclick="showTab('create',this)">Create</button>
+<button class="tab" onclick="showTab('fetch',this)">Fetch Invoice</button>
+<button class="tab" onclick="showTab('settings',this)">Settings</button>
+</div>
+
+<div id="create" class="tabpage active">
+<div class="section"><h2>Company Details</h2><div class="grid">
+<div class="full"><label>Company Name</label><input id="company" value="YOUR COMPANY NAME"></div>
+<div><label>Phone</label><input id="phone" value="+91 00000 00000"></div><div><label>Email</label><input id="email" value="info@example.com"></div>
+<div class="full"><label>Address</label><textarea id="address">Your address, City, Maharashtra</textarea></div>
+<div><label>GSTIN</label><input id="gst" placeholder="Optional"></div><div><label>Currency</label><input id="currency" value="₹"></div>
+</div></div>
+
+<div class="section"><h2>Client & Quotation</h2><div class="grid">
+<div class="full"><label>Client Name</label><input id="client" value="Client Name"></div>
+<div><label>Client Mobile</label><input id="clientMobile" placeholder="+91..."></div><div><label>Quotation No.</label><input id="quoteNo"></div>
+<div><label>Date</label><input id="date" type="date"></div><div><label>Validity</label><input id="validity" value="15 Days"></div>
+<div><label>Tax / GST %</label><input id="tax" type="number" min="0" step="0.01" value="0"></div>
+</div></div>
+
+<div class="section"><h2>Pricing & Display</h2><div class="grid">
+<div><label>Default Profit %</label><input id="profit" type="number" min="0" step="0.01" value="20"></div>
+<div><label>Price Mode</label><select id="mode"><option value="markup">Cost + Profit %</option><option value="margin">Selling Margin %</option></select></div>
+<input id="simpleMode" type="hidden" value="false"><div class="full"><button id="simpleModeBtn" class="btn secondary" style="width:100%" onclick="toggleSimpleMode()">☑ Simple Quotation: OFF</button></div>
+</div><div class="hint">Simple Quotation ON hone par client quotation me <b>Rate aur item-wise Amount hide</b> honge. Item Description + Qty + final Grand Total dikhega. OFF par detailed quotation dikhega.</div></div>
+
+<div class="section"><h2>Items / Rates</h2>
+<div class="items-wrap"><table class="items"><thead><tr><th>Item / Search</th><th>Qty</th><th>Cost</th><th>Profit %</th><th>Rate</th><th>Amount</th><th></th></tr></thead><tbody id="items"></tbody></table></div>
+<button class="btn secondary" style="width:100%;margin-top:9px" onclick="addItem()">＋ Add Item</button>
+<div class="hint">Item name type karte waqt Google Sheet ke catalog ke matching items dropdown/suggestions me aayenge.</div></div>
+
+<div class="section"><h2>Notes</h2><textarea id="notes">Installation and other charges, if applicable, will be discussed separately.
+Quotation is valid for the period mentioned above.</textarea></div>
+<div class="section"><div class="btns">
+<button class="btn primary" onclick="downloadJPG()">⬇ JPEG</button><button class="btn secondary" onclick="window.print()">🖨 Print / PDF</button>
+<button class="btn primary" onclick="saveAndSync()">☁ Save + Sheet</button><button class="btn whatsapp-btn" onclick="shareCurrentQuotation()">📲 Share on WhatsApp</button>
+</div><div id="syncStatus" class="status">Google Sheet: not connected. Add your Apps Script Web App URL in Settings.</div></div>
+</div>
+
+<div id="fetch" class="tabpage">
+<div class="section"><h2>Fetch Invoice</h2>
+<label>Invoice / Quotation Number</label><input id="fetchNo" placeholder="e.g. QT-2026-001">
+<div style="text-align:center;margin:7px;color:#98a2b3;font-size:10px">OR</div>
+<label>Client Name</label><input id="fetchName" placeholder="e.g. Ahmed / ABC Traders">
+<div style="text-align:center;margin:7px;color:#98a2b3;font-size:10px">OR</div>
+<label>Client Mobile Number</label><input id="fetchMobile" placeholder="+91...">
+<button class="btn primary" style="width:100%;margin-top:10px" onclick="fetchInvoices()">🔎 Fetch Invoice</button>
+<div id="quoteSearchResults" style="margin-top:10px"></div>
+<div class="hint">Invoice number, Client Name ya Mobile se search karein. Result select karte hi quotation load hoga. Har result ke saath <b>WhatsApp Share</b> button milega.</div>
+</div></div>
+
+<div id="settings" class="tabpage">
+<div class="section"><h2>Invoice Design</h2>
+<label>Invoice Theme Color</label><div class="color-row"><input id="quoteColor" type="color" value="#111827"><input id="quoteColorText" value="#111827"></div>
+<div style="margin-top:10px"><label>Company Logo</label><input id="logoFile" type="file" accept="image/*"><div id="logoPreview" class="logo-preview">No logo selected — Company Name will be shown.</div></div>
+<button class="btn secondary" style="width:100%;margin-top:10px" onclick="removeLogo()">Remove Logo</button>
+</div>
+<div class="section"><h2>Google Sheet Connection</h2>
+<label>Google Apps Script Web App URL</label><input id="sheetUrl" placeholder="https://script.google.com/macros/s/.../exec">
+<div class="hint">HTML file Google Sheet ko direct write nahi kar sakti. Is field me aapka Google Apps Script Web App URL lagega. Neeche HTML ke saath Apps Script setup code bhi diya gaya hai.</div>
+<button class="btn primary" style="width:100%;margin-top:9px" onclick="testSheet()">Test Connection</button>
+<div id="sheetTest" class="status">Not tested.</div>
+</div>
+<div class="section"><h2>Data Model</h2><div class="hint">Sheet me Quotations table ke saath ItemCatalog bhi maintain kiya ja sakta hai. Save + Sheet quotation ka complete header + items store karega. New item save karne par ItemCatalog me bhi add/update hoga.</div></div>
+</div>
+</aside>
+
+<main class="preview-wrap"><div class="toolbar"><button onclick="downloadJPG()">Download JPEG</button><button onclick="window.print()">Print / PDF</button></div><div id="quote"></div></main>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const fields=['company','phone','email','address','gst','currency','client','clientMobile','quoteNo','date','validity','tax','profit','mode','simpleMode','notes','sheetUrl','quoteColor'];
+const defaults=[['4 channel DVR',1,2400,''],['2MP Camera Dome',4,750,''],['SMPS',1,350,''],['Wire Bundle',1,1000,''],['BNC, DC, PVC Box',1,360,''],['500 GB HDD',1,1750,'']];
+let logoData=localStorage.getItem('quotationLogo')||'';
+
+function showTab(id,btn){document.querySelectorAll('.tabpage').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));$(id).classList.add('active');btn.classList.add('active')}
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function money(n){return ($('currency').value||'₹')+' '+Number(n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function calc(cost,p){return $('mode').value==='margin'?(p>=100?cost:cost/(1-p/100)):cost*(1+p/100)}
+
+function addItem(data=['New Item',1,0,'',null,null]){
+ const tr=document.createElement('tr');
+ tr.innerHTML=`<td><input class="name" list="catalogList" value="${esc(data[0])}"></td>
+ <td><input class="num qty" type="number" min="0" step="1" value="${data[1]}"></td>
+ <td><input class="num cost" type="number" min="0" step="0.01" value="${data[2]}"></td>
+ <td><input class="num ip" type="number" min="0" step="0.01" placeholder="Default" value="${data[3]??''}"></td>
+ <td><input class="num rate" type="number" min="0" step="0.01" value="${data[4]??''}" title="Selling Rate"></td>
+ <td><input class="num amount" type="number" min="0" step="0.01" value="${data[5]??''}" title="Direct Amount"></td>
+ <td><button class="del" onclick="this.closest('tr').remove();render()">×</button></td>`;
+ $('items').appendChild(tr);
+ const name=tr.querySelector('.name');
+ name.addEventListener('change',()=>applyCatalog(name,tr));
+ tr.querySelectorAll('input').forEach(x=>x.addEventListener('input',e=>onItemInput(e,tr)));
+ render();
+}
+function applyCatalog(input,tr){
+ const found=window.catalog?.find(x=>x.name.toLowerCase()===input.value.trim().toLowerCase());
+ if(found){tr.querySelector('.cost').value=found.cost||0;if(found.defaultProfit!==''&&found.defaultProfit!=null)tr.querySelector('.ip').value=found.defaultProfit}
+ onItemInput(null,tr);
+}
+function onItemInput(e,tr){
+ const qty=+tr.querySelector('.qty').value||0,cost=+tr.querySelector('.cost').value||0;
+ const ip=tr.querySelector('.ip'),rate=tr.querySelector('.rate'),amount=tr.querySelector('.amount');
+ if(e && e.target===amount && amount.value!==''){
+   const a=+amount.value||0; rate.value=qty?a/qty:0;
+   ip.value=cost?(((rate.value-cost)/cost)*100).toFixed(2):'0';
+ }else if(e && e.target===rate && rate.value!==''){
+   amount.value=(+rate.value*qty).toFixed(2);
+   ip.value=cost?(((+rate.value-cost)/cost)*100).toFixed(2):'0';
+ }else{
+   const p=ip.value.trim()===''?(+$('profit').value||0):+ip.value;
+   const r=calc(cost,p);rate.value=r.toFixed(2);amount.value=(r*qty).toFixed(2);
+ }
+ render();
+}
+function toggleSimpleMode(){
+ const on=$('simpleMode').value==='true';
+ $('simpleMode').value=String(!on);
+ syncSimpleButton();
+ render();
+}
+function syncSimpleButton(){
+ const on=$('simpleMode').value==='true';
+ $('simpleModeBtn').textContent=`☑ Simple Quotation: ${on?'ON':'OFF'}`;
+ $('simpleModeBtn').className=`btn ${on?'primary':'secondary'}`;
+}
+function getItems(){return [...$('items').querySelectorAll('tr')].map(tr=>{
+ const q=+tr.querySelector('.qty').value||0,c=+tr.querySelector('.cost').value||0,r=+tr.querySelector('.rate').value||0,a=+tr.querySelector('.amount').value||0,p=c?((r-c)/c*100):0;
+ return {name:tr.querySelector('.name').value||'Item',q,c,p,rate:r,amount:a,profit:a-q*c};
+})}
+function render(){
+ const it=getItems(),subtotal=it.reduce((s,x)=>s+x.amount,0);
+ const taxP=+$('tax').value||0,tax=subtotal*taxP/100,total=subtotal+tax;
+ const simple=$('simpleMode').value==='true';
+ const rows=simple
+  ? it.map((x,i)=>`<tr><td class="center">${i+1}</td><td>${esc(x.name)}</td><td class="center">${x.q}</td></tr>`).join('')
+  : it.map((x,i)=>`<tr><td class="center">${i+1}</td><td>${esc(x.name)}</td><td class="center">${x.q}</td><td class="right">${money(x.rate)}</td><td class="right">${money(x.amount)}</td></tr>`).join('');
+ const col=$('quoteColor').value||'#111827';
+ $('quote').style.setProperty('--quoteColor',col);
+ const table=simple
+  ? `<table class="qtable"><thead><tr><th style="width:40px">#</th><th>Item Description</th><th style="width:70px">Qty</th></tr></thead><tbody>${rows}</tbody></table>`
+  : `<table class="qtable"><thead><tr><th style="width:40px">#</th><th>Item Description</th><th style="width:55px">Qty</th><th style="width:105px">Rate</th><th style="width:120px">Amount</th></tr></thead><tbody>${rows}</tbody></table>`;
+ $('quote').innerHTML=`<div class="qhead"><div><div class="brand">${logoData?`<img src="${logoData}" alt="Logo">`:`${esc($('company').value)}`}</div>
+ <div class="tag">${esc($('phone').value)} · ${esc($('email').value)}</div><div class="tag">${esc($('address').value)}</div>${$('gst').value?`<div class="tag">GSTIN: ${esc($('gst').value)}</div>`:''}</div>
+ <div class="qtitle"><h2>QUOTATION</h2><div>No: ${esc($('quoteNo').value)}</div><div>Date: ${esc($('date').value)}</div></div></div>
+ <div class="meta"><div><h4>Prepared For</h4><p><b>${esc($('client').value)}</b></p><p>${esc($('clientMobile').value)}</p></div>
+ <div><h4>Quotation Details</h4><p>Validity: ${esc($('validity').value)}</p><p>${simple?'Simple quotation':'Detailed quotation'}</p></div></div>
+ ${table}
+ <div class="totals"><div class="tr"><span>${simple?'Total':'Subtotal'}</span><b>${money(subtotal)}</b></div>${taxP?`<div class="tr"><span>GST / Tax (${taxP}%)</span><b>${money(tax)}</b></div>`:''}<div class="tr total"><span>Grand Total</span><b>${money(total)}</b></div></div>
+ <div class="notes"><b>Notes & Terms</b><br>${esc($('notes').value).replace(/\n/g,'<br>')}</div><div class="sign"><div class="signline">Authorized Signatory</div></div>`;
+ syncSimpleButton();
+}
+fields.forEach(id=>$(id).addEventListener('input',render));
+$('date').value=new Date().toISOString().slice(0,10);$('quoteNo').value='QT-'+new Date().getFullYear()+'-001';$('simpleMode').value='false';
+
+$('quoteColor').addEventListener('input',()=>{$('quoteColorText').value=$('quoteColor').value;render()});
+$('quoteColorText').addEventListener('input',()=>{if(/^#[0-9a-f]{6}$/i.test($('quoteColorText').value)){$('quoteColor').value=$('quoteColorText').value;render()}});
+$('logoFile').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{logoData=r.result;localStorage.setItem('quotationLogo',logoData);$('logoPreview').innerHTML=`<img src="${logoData}">`;render()};r.readAsDataURL(f)});
+function removeLogo(){logoData='';localStorage.removeItem('quotationLogo');$('logoPreview').textContent='No logo selected — Company Name will be shown.';render()}
+
+function saveData(){const data={};fields.forEach(id=>data[id]=$(id).value);data.items=getItems();localStorage.setItem('quotationMakerData',JSON.stringify(data));$('syncStatus').textContent='Saved locally in this browser.'}
+function loadData(){try{const d=JSON.parse(localStorage.getItem('quotationMakerData')||'null');if(!d)return;fields.forEach(id=>{if(d[id]!=null)$(id).value=d[id]});$('items').innerHTML='';(d.items||[]).forEach(x=>addItem([x.name,x.q,x.c,x.p,x.rate,x.amount]));$('logoPreview').innerHTML=logoData?`<img src="${logoData}">`:'No logo selected — Company Name will be shown.'}catch(e){}}
+loadData();if(!$('items').children.length)defaults.forEach(x=>addItem(x));
+
+async function api(action,payload={}){
+ const url=$('sheetUrl').value.trim();if(!url)throw new Error('Google Apps Script Web App URL missing.');
+ const body={action,...payload};
+ const res=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)});
+ const text=await res.text();let j;try{j=JSON.parse(text)}catch(e){throw new Error('Invalid response from Apps Script.')};if(!j.ok)throw new Error(j.error||'Sheet operation failed');return j;
+}
+function quotationPayload(){return {quotation:{quoteNo:$('quoteNo').value,date:$('date').value,company:$('company').value,phone:$('phone').value,email:$('email').value,address:$('address').value,gst:$('gst').value,client:$('client').value,clientMobile:$('clientMobile').value,validity:$('validity').value,tax:$('tax').value,profit:$('profit').value,mode:$('mode').value,simpleMode:$('simpleMode').value,notes:$('notes').value,items:getItems()}}}
+async function saveAndSync(){
+ saveData();try{const j=await api('saveQuotation',quotationPayload());$('syncStatus').textContent='✓ Saved to Google Sheet: '+(j.message||'Success')}catch(e){$('syncStatus').textContent='⚠ '+e.message}
+}
+async function testSheet(){try{const j=await api('ping');$('sheetTest').textContent='✓ Connected: '+(j.message||'Google Sheet ready')}catch(e){$('sheetTest').textContent='⚠ '+e.message}}
+async function fetchInvoices(){
+ const no=$('fetchNo').value.trim(),name=$('fetchName').value.trim(),mobile=$('fetchMobile').value.trim();
+ if(!no&&!name&&!mobile){$('quoteSearchResults').innerHTML='<div class="status">Invoice number, client name ya mobile number enter karein.</div>';return}
+ try{
+  const j=await api('fetchQuotations',{quoteNo:no,name,mobile});
+  if(!j.rows?.length){$('quoteSearchResults').innerHTML='<div class="status">No invoice found.</div>';return}
+  $('quoteSearchResults').innerHTML=j.rows.map((r,i)=>`<div class="invoice-result"><div onclick='loadQuotation(${JSON.stringify(r).replace(/'/g,"&#39;")})'><b>${esc(r.quoteNo||'')}</b> — ${esc(r.client||'')}</div><div style="margin-top:4px">${esc(r.date||'')} · ${esc(r.clientMobile||'')} · ${money(+r.total||0)}</div><button class="btn whatsapp-btn" style="margin-top:6px;padding:6px 8px" onclick='event.stopPropagation();shareWhatsApp(${JSON.stringify(r).replace(/'/g,"&#39;")})'>📲 Share on WhatsApp</button></div>`).join('');
+ }catch(e){$('quoteSearchResults').innerHTML='<div class="status">⚠ '+esc(e.message)+'</div>'}
+}
+function loadQuotation(r){
+ const map=['company','phone','email','address','gst','client','clientMobile','quoteNo','date','validity','tax','profit','mode','notes'];
+ const keys=['company','phone','email','address','gst','client','clientMobile','quoteNo','date','validity','tax','profit','mode','simpleMode','notes'];
+ keys.forEach((k,i)=>{if(r[k]!=null&&$(k))$(k).value=r[k]});
+ if(r.items){$('items').innerHTML='';r.items.forEach(x=>addItem([x.name,x.q,x.c,x.p,x.rate,x.amount]))}
+ render();document.querySelector('.tab').click();window.scrollTo({top:0,behavior:'smooth'});
+}
+async function loadCatalog(){
+ try{const j=await api('getItems');window.catalog=j.items||[];let dl=document.getElementById('catalogList');if(!dl){dl=document.createElement('datalist');dl.id='catalogList';document.body.appendChild(dl)}dl.innerHTML=window.catalog.map(x=>`<option value="${esc(x.name)}">${esc(x.name)}</option>`).join('')}catch(e){window.catalog=[]}
+}
+loadCatalog();
+
+function shareCurrentQuotation(){
+ const raw=String($('clientMobile').value||'').replace(/\D/g,'');
+ if(!raw){alert('Client mobile number enter karein.');return;}
+ const phone=raw.length===10?'91'+raw:raw;
+ const items=getItems();
+ const total=items.reduce((sum,x)=>sum+x.amount,0);
+ const taxP=+$('tax').value||0;
+ const grand=total+(total*taxP/100);
+ const simple=$('simpleMode').value==='true';
+ const lines=[`Hello ${$('client').value||'Client'},`,'',`Quotation No: ${$('quoteNo').value||''}`,`Date: ${$('date').value||''}`,'','Please find your quotation details below.',...(items||[]).map(x=>simple?`• ${x.name} — Qty: ${x.q}`:`• ${x.name} — ${x.q} × ${x.rate} = ${x.amount}`),'',`Grand Total: ${money(grand)}`,'',`Thank you, ${$('company').value||''}`];
+ window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(lines.join('\n')),'_blank');
+}
+function shareWhatsApp(r){
+ const raw=String(r.clientMobile||'').replace(/\D/g,'');
+ if(!raw){alert('Client mobile number saved nahi hai.');return;}
+ const phone=raw.length===10?'91'+raw:raw;
+ const lines=[`Hello ${r.client||'Client'},`,'',`Quotation No: ${r.quoteNo||''}`,`Date: ${r.date||''}`,'','Please find your quotation details below.',...(r.items||[]).map(x=>`• ${x.name} (Qty: ${x.q})`),'',`Grand Total: ${money(Number(r.total||0))}`,'',`Thank you, ${r.company||''}`];
+ window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(lines.join('\n')),'_blank');
+}
+function downloadJPG(){
+ const q=$('quote');
+ if(!q || !q.innerHTML.trim()){alert('Quotation preview is not ready.');return;}
+ const rect=q.getBoundingClientRect();
+ const w=Math.ceil(q.scrollWidth||rect.width||820),h=Math.ceil(q.scrollHeight||rect.height||1120),scale=2;
+ const styles=[...document.styleSheets].map(s=>{try{return [...s.cssRules].map(r=>r.cssText).join('\n')}catch(e){return ''}}).join('\n');
+ const clone=q.cloneNode(true);
+ clone.style.width=w+'px';clone.style.minHeight=h+'px';clone.style.boxShadow='none';
+ const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${w*scale}" height="${h*scale}" viewBox="0 0 ${w} ${h}"><foreignObject width="${w}" height="${h}"><div xmlns="http://www.w3.org/1999/xhtml" style="width:${w}px;min-height:${h}px;background:#fff;font-family:Arial,sans-serif"><style>${styles}</style>${clone.outerHTML}</div></foreignObject></svg>`;
+ const blob=new Blob([svg],{type:'image/svg+xml;charset=utf-8'}),url=URL.createObjectURL(blob),img=new Image();
+ img.onload=()=>{
+  const c=document.createElement('canvas');c.width=w*scale;c.height=h*scale;
+  const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(url);
+  c.toBlob(b=>{if(!b){alert('JPEG export failed. Use Print / PDF instead.');return;}const u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=(($('quoteNo').value||'quotation').replace(/[^a-z0-9_-]/gi,'_')+'.jpg');document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1500)},'image/jpeg',.95);
+ };
+ img.onerror=()=>{URL.revokeObjectURL(url);alert('JPEG export is not supported by this browser. Please use Print / PDF.');};
+ img.src=url;
+}
+</script>
+</body></html>
