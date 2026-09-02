@@ -1,7 +1,7 @@
 QUOTATION MAKER PRO — COMPLETE SETUP GUIDE
 
 FILES
-1. quotation_maker_pro_v2.html — main quotation maker
+1. index.html — main quotation maker
 2. google_sheet_apps_script_v2.gs — Google Sheets backend
 3. This guide
 
@@ -21,7 +21,7 @@ DEPLOY
 6. Copy the URL ending in /exec.
 
 CONNECT HTML
-1. Open quotation_maker_pro_v2.html in Chrome/Edge.
+1. Open index.html in Chrome/Edge.
 2. Settings → Google Apps Script Web App URL.
 3. Paste the /exec URL.
 4. Click Test Connection.
