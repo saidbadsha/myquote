@@ -1,629 +1,2894 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Invoice &amp; Quotation Maker Pro</title>
-<style>
-:root{--bg:#f3f5f7;--card:#fff;--ink:#17202a;--muted:#667085;--line:#e4e7ec;--accent:#111827}
-*{box-sizing:border-box}body{margin:0;font-family:Inter,Arial,sans-serif;background:var(--bg);color:var(--ink)}
-.app{display:grid;grid-template-columns:440px 1fr;min-height:100vh}
-.panel{background:#fff;border-right:1px solid var(--line);padding:20px;overflow:auto}.panel h1{font-size:22px;margin:0 0 4px}.sub{font-size:12px;color:var(--muted);margin-bottom:14px}
-.tabs{display:flex;gap:6px;margin:0 -2px 15px}.tab{flex:1;border:1px solid #d0d5dd;background:#fff;border-radius:9px;padding:9px 7px;font-size:11px;font-weight:700;cursor:pointer}.tab.active{background:#111827;color:#fff}
-.tabpage{display:none}.tabpage.active{display:block}
-.section{border:1px solid var(--line);border-radius:13px;padding:14px;margin-bottom:13px;overflow:hidden}.section h2{font-size:14px;margin:0 0 11px}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.full{grid-column:1/-1}
-label{font-size:10px;color:#475467;display:block;margin-bottom:4px;font-weight:700}
-input,textarea,select{width:100%;border:1px solid #d0d5dd;border-radius:8px;padding:8px 9px;font:inherit;font-size:12px;background:#fff}textarea{resize:vertical;min-height:55px}
-.items-wrap{width:100%;overflow-x:auto;border:1px solid #eaecf0;border-radius:9px;background:#fff;margin-bottom:4px;-webkit-overflow-scrolling:touch}
-.items{width:100%;min-width:410px;border-collapse:collapse}
-.items th{font-size:9px;color:#667085;text-align:left;padding:6px 4px;background:#f9fafb;font-weight:700;border-bottom:1px solid #eaecf0;text-transform:uppercase;letter-spacing:.3px}
-.items td{padding:4px 2px;vertical-align:middle;border-bottom:1px solid #f2f4f7}
-.items tr:last-child td{border-bottom:none}
-.items input{padding:6px 4px;font-size:10px;height:29px}
-.items .name{min-width:100px}
-.items .num{width:100%}
-.del{border:0;background:#fee4e2;color:#b42318;border-radius:6px;width:26px;height:26px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;line-height:1;transition:background .15s}
-.del:hover{background:#fecdca}
-.btns{display:grid;grid-template-columns:1fr 1fr;gap:7px}
-.btn{border:0;border-radius:8px;padding:9px;font-weight:700;cursor:pointer;font-size:11px;transition:opacity .15s}.btn:hover{opacity:.88}
-.hint{font-size:10px;color:#667085;line-height:1.5;margin-top:7px}.status{font-size:10px;margin-top:8px;padding:8px;border-radius:7px;background:#f2f4f7;color:#475467}
-.logo-preview{height:70px;border:1px dashed #cfd4dc;border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-top:7px;font-size:11px;color:#98a2b3}.logo-preview img{max-height:65px;max-width:180px}
-.color-row{display:flex;align-items:center;gap:8px}.color-row input[type=color]{width:48px;height:36px;padding:2px}
-#quoteSearchResults{max-height:240px;overflow:auto}.invoice-result{padding:9px;border-bottom:1px solid #eaecf0;cursor:pointer;font-size:11px}.invoice-result:hover{background:#f2f4f7}
-.preview-wrap{padding:20px 28px 40px;display:flex;flex-direction:column;align-items:center;overflow:auto;min-height:100vh}
-.toolbar{position:sticky;top:14px;z-index:100;display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.9);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);padding:8px 14px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.08),0 1px 3px rgba(0,0,0,0.04);border:1px solid var(--line);margin-bottom:18px}
-.toolbar button{border:0;border-radius:8px;padding:9px 14px;font-size:11px;font-weight:700;cursor:pointer;color:#fff;box-shadow:0 2px 5px rgba(0,0,0,0.1);transition:all .15s ease;display:inline-flex;align-items:center;gap:5px}
-.toolbar button:hover{transform:translateY(-1px);filter:brightness(1.08);box-shadow:0 4px 10px rgba(0,0,0,0.15)}
-.toolbar button:active{transform:translateY(0)}
-#quote{width:820px;background:#fff;box-shadow:0 8px 35px #0001;min-height:1120px;padding:48px 50px}
-.qhead{display:flex;justify-content:space-between;gap:20px;border-bottom:3px solid var(--quoteColor,#111827);padding-bottom:18px}.brand{font-size:27px;font-weight:800;letter-spacing:.4px}.brand img{max-height:58px;max-width:230px;display:block;object-fit:contain}.tag{color:#667085;font-size:11px;margin-top:4px}.qtitle{text-align:right}.qtitle h2{margin:0;font-size:27px;color:var(--quoteColor,#111827)}.qtitle div{font-size:11px;color:#667085;margin-top:5px}
-.meta{display:grid;grid-template-columns:1fr 1fr;gap:35px;padding:22px 0}.meta h4{margin:0 0 7px;font-size:10px;color:#667085;text-transform:uppercase;letter-spacing:.6px}.meta p{margin:3px 0;font-size:12px;line-height:1.45}
-.qtable{width:100%;border-collapse:collapse;margin-top:4px}.qtable th{background:var(--quoteColor,#111827);color:#fff;padding:10px 8px;font-size:10px;text-align:left}.qtable td{border-bottom:1px solid #eaecf0;padding:10px 8px;font-size:11px}.qtable .right{text-align:right}.qtable .center{text-align:center}
-.totals{margin-left:auto;width:300px;margin-top:18px}.tr{display:flex;justify-content:space-between;padding:6px 0;font-size:12px}.tr.total{border-top:2px solid var(--quoteColor,#111827);margin-top:5px;padding-top:10px;font-size:15px;font-weight:800}
-.notes{margin-top:30px;border-top:1px solid #eaecf0;padding-top:15px;font-size:10px;color:#667085;line-height:1.55}.sign{margin-top:45px;text-align:right;font-size:11px}.signline{display:inline-block;width:170px;border-top:1px solid #344054;margin-top:40px;padding-top:6px}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Invoice &amp; Quotation Maker Pro</title>
+  <style>
+    :root {
+      --bg: #f3f5f7;
+      --card: #fff;
+      --ink: #17202a;
+      --muted: #667085;
+      --line: #e4e7ec;
+      --accent: #111827
+    }
 
-/* ── Document Type Selector ── */
-.doc-type-wrap{margin-bottom:14px}
-.doc-type-selector{display:flex;border:1px solid #d0d5dd;border-radius:10px;overflow:hidden;background:#f9fafb}
-.doc-type-btn{flex:1;border:0;padding:11px 8px;font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:#667085;transition:all .15s}
-.doc-type-btn.active-invoice{background:#0369a1;color:#fff}
-.doc-type-btn.active-quotation{background:#111827;color:#fff}
-.doc-type-btn:not(.active-invoice):not(.active-quotation):hover{background:#e5e7eb;color:#111827}
+    * {
+      box-sizing: border-box
+    }
 
-/* ── Button Colors ── */
-.btn-save{background:#059669;color:#fff}
-.btn-new{background:#2563eb;color:#fff}
-.btn-new-inv{background:#0369a1;color:#fff}
-.btn-new-qt{background:#7c3aed;color:#fff}
-.btn-jpeg{background:#d97706;color:#fff}
-.btn-pdf{background:#0891b2;color:#fff}
-.btn-print{background:#374151;color:#fff}
-.btn-whatsapp{background:#25D366;color:#fff}
-.btn-fetch{background:#111827;color:#fff}
-.btn-delete{background:#dc2626;color:#fff}
-.btn-primary{background:#111827;color:#fff}
-.btn-secondary{background:#eef2f6;color:#111827}
-.btn-danger{background:#fff1f0;color:#b42318}
-.whatsapp-btn{background:#25D366;color:#fff}
-.primary{background:#111827;color:#fff}
-.secondary{background:#eef2f6;color:#111827}
-.danger{background:#fff1f0;color:#b42318}
+    body {
+      margin: 0;
+      font-family: Inter, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--ink)
+    }
 
-/* ── Toolbar Button Colors ── */
-.tb-jpeg{background:#d97706}.tb-pdf{background:#0891b2}.tb-print{background:#374151}.tb-save{background:#059669}.tb-wa{background:#25D366}
+    .app {
+      display: grid;
+      grid-template-columns: var(--panel-width, 440px) 6px 1fr;
+      min-height: 100vh;
+      transition: grid-template-columns .05s ease
+    }
 
-@media(max-width:1100px){.app{grid-template-columns:380px 1fr}.panel{padding:16px}.preview-wrap{padding:16px}.toolbar{right:14px;top:12px}}
-@media(max-width:820px){.app{display:block}.panel{border-right:0;border-bottom:1px solid var(--line)}.preview-wrap{display:block;padding:12px;overflow-x:hidden}.toolbar{position:sticky;top:0;right:auto;justify-content:center;padding:8px;margin:-12px -12px 12px;background:rgba(243,245,247,.96);backdrop-filter:blur(6px)}#quote{width:100%;min-height:0;margin:0 auto;padding:30px 24px;box-shadow:0 4px 18px #0001}.qhead{flex-wrap:wrap}.qtitle{text-align:left;margin-left:auto}.meta{gap:16px}.totals{width:min(300px,100%)}}
-@media(max-width:560px){.panel{padding:11px}.tabs{position:sticky;top:0;z-index:4;background:#fff;padding:5px 0}.grid{grid-template-columns:1fr}.full{grid-column:1}.btns{grid-template-columns:1fr}.items-wrap{overflow-x:auto}.items{min-width:690px}.preview-wrap{padding:8px}.toolbar{margin:-8px -8px 8px;gap:5px}.toolbar button{padding:8px 9px;font-size:10px}#quote{padding:22px 16px}.qhead{display:block}.qtitle{text-align:left;margin-top:18px}.brand{font-size:22px}.qtitle h2{font-size:23px}.meta{grid-template-columns:1fr;gap:12px;padding:16px 0}.qtable{table-layout:fixed}.qtable th,.qtable td{padding:7px 5px;font-size:9px;word-break:break-word}.qtable th:nth-child(1){width:28px!important}.qtable th:nth-child(3){width:42px!important}.qtable th:nth-child(4){width:78px!important}.qtable th:nth-child(5){width:86px!important}.totals{margin-top:14px}.notes{margin-top:20px}.sign{margin-top:30px}}
+    .app.collapsed {
+      grid-template-columns: 0px 6px 1fr
+    }
 
-/* ── Print: Invoice Style ── */
-@media print{
-  body{background:#fff}
-  .panel,.toolbar{display:none!important}
-  .preview-wrap{padding:0;display:block}
-  .app{display:block}
-  #quote{box-shadow:none;width:210mm;min-height:297mm;padding:16mm;margin:0}
-  .qhead{display:flex}
-  .qtitle{text-align:right;margin-top:0}
-  .meta{grid-template-columns:1fr 1fr}
-  .items-wrap{overflow:visible}
-  .doc-type-wrap{display:none!important}
-}
-/* ── Print: Invoice-specific ── */
-body.print-invoice #quote .qhead{border-bottom:3px solid var(--quoteColor,#111827)}
-body.print-invoice #quote .qtable th{background:var(--quoteColor,#111827)}
-body.print-invoice #quote .tr.total{border-top:2px solid var(--quoteColor,#111827)}
-/* ── Print: Quotation-specific ── */
-body.print-quotation #quote .qhead{border-bottom:3px double var(--quoteColor,#111827)}
-body.print-quotation #quote .qtable th{background:var(--quoteColor,#111827)}
-body.print-quotation #quote .tr.total{border-top:2px double var(--quoteColor,#111827)}
-</style>
+    .app.collapsed .panel {
+      display: none
+    }
+
+    .resizer {
+      background: #eaecf0;
+      cursor: col-resize;
+      position: relative;
+      user-select: none;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background .2s
+    }
+
+    .resizer:hover,
+    .resizer.dragging {
+      background: #0369a1
+    }
+
+    .resizer::after {
+      content: '';
+      width: 2px;
+      height: 36px;
+      background: #98a2b3;
+      border-radius: 2px;
+      transition: background .2s
+    }
+
+    .resizer:hover::after,
+    .resizer.dragging::after {
+      background: #fff
+    }
+
+    .resizer-toggle {
+      position: absolute;
+      left: -10px;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: #fff;
+      border: 1px solid #d0d5dd;
+      color: #344054;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      transition: all .2s;
+      z-index: 51
+    }
+
+    .resizer-toggle:hover {
+      background: #111827;
+      color: #fff;
+      border-color: #111827;
+      transform: scale(1.1)
+    }
+
+    .panel {
+      background: #fff;
+      border-right: 1px solid var(--line);
+      padding: 20px;
+      overflow: auto
+    }
+
+    .panel h1 {
+      font-size: 22px;
+      margin: 0 0 4px
+    }
+
+    .sub {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 14px
+    }
+
+    .tabs {
+      display: flex;
+      gap: 6px;
+      margin: 0 -2px 15px
+    }
+
+    .tab {
+      flex: 1;
+      border: 1px solid #d0d5dd;
+      background: #fff;
+      border-radius: 9px;
+      padding: 9px 7px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer
+    }
+
+    .tab.active {
+      background: #111827;
+      color: #fff
+    }
+
+    .tabpage {
+      display: none
+    }
+
+    .tabpage.active {
+      display: block
+    }
+
+    .section {
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      padding: 14px;
+      margin-bottom: 13px;
+      overflow: hidden
+    }
+
+    .section h2 {
+      font-size: 14px;
+      margin: 0 0 11px
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px
+    }
+
+    .full {
+      grid-column: 1/-1
+    }
+
+    label {
+      font-size: 10px;
+      color: #475467;
+      display: block;
+      margin-bottom: 4px;
+      font-weight: 700
+    }
+
+    input,
+    textarea,
+    select {
+      width: 100%;
+      border: 1px solid #d0d5dd;
+      border-radius: 8px;
+      padding: 8px 9px;
+      font: inherit;
+      font-size: 12px;
+      background: #fff
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 55px
+    }
+
+    .items-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid #eaecf0;
+      border-radius: 9px;
+      background: #fff;
+      margin-bottom: 4px;
+      -webkit-overflow-scrolling: touch
+    }
+
+    .items {
+      width: 100%;
+      min-width: 410px;
+      border-collapse: collapse
+    }
+
+    .items th {
+      font-size: 9px;
+      color: #667085;
+      text-align: left;
+      padding: 6px 4px;
+      background: #f9fafb;
+      font-weight: 700;
+      border-bottom: 1px solid #eaecf0;
+      text-transform: uppercase;
+      letter-spacing: .3px
+    }
+
+    .items td {
+      padding: 4px 2px;
+      vertical-align: middle;
+      border-bottom: 1px solid #f2f4f7
+    }
+
+    .items tr:last-child td {
+      border-bottom: none
+    }
+
+    .items input {
+      padding: 6px 4px;
+      font-size: 10px;
+      height: 29px
+    }
+
+    .items .name {
+      min-width: 100px
+    }
+
+    .items .num {
+      width: 100%
+    }
+
+    .del {
+      border: 0;
+      background: #fee4e2;
+      color: #b42318;
+      border-radius: 6px;
+      width: 26px;
+      height: 26px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: bold;
+      line-height: 1;
+      transition: background .15s
+    }
+
+    .del:hover {
+      background: #fecdca
+    }
+
+    .btns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 8px;
+      padding: 9px;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 11px;
+      transition: opacity .15s
+    }
+
+    .btn:hover {
+      opacity: .88
+    }
+
+    .hint {
+      font-size: 10px;
+      color: #667085;
+      line-height: 1.5;
+      margin-top: 7px
+    }
+
+    .status {
+      font-size: 10px;
+      margin-top: 8px;
+      padding: 8px;
+      border-radius: 7px;
+      background: #f2f4f7;
+      color: #475467
+    }
+
+    .logo-preview {
+      height: 70px;
+      border: 1px dashed #cfd4dc;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      margin-top: 7px;
+      font-size: 11px;
+      color: #98a2b3
+    }
+
+    .logo-preview img {
+      max-height: 65px;
+      max-width: 180px
+    }
+
+    .color-row {
+      display: flex;
+      align-items: center;
+      gap: 8px
+    }
+
+    .color-row input[type=color] {
+      width: 48px;
+      height: 36px;
+      padding: 2px
+    }
+
+    #quoteSearchResults {
+      max-height: 240px;
+      overflow: auto
+    }
+
+    .invoice-result {
+      padding: 9px;
+      border-bottom: 1px solid #eaecf0;
+      cursor: pointer;
+      font-size: 11px
+    }
+
+    .invoice-result:hover {
+      background: #f2f4f7
+    }
+
+    .preview-wrap {
+      padding: 20px 28px 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow: auto;
+      min-height: 100vh
+    }
+
+    .toolbar {
+      position: sticky;
+      top: 14px;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 8px 14px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+      border: 1px solid var(--line);
+      margin-bottom: 18px
+    }
+
+    .toolbar button {
+      border: 0;
+      border-radius: 8px;
+      padding: 9px 14px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      color: #fff;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      transition: all .15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px
+    }
+
+    .toolbar button:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.08);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15)
+    }
+
+    .toolbar button:active {
+      transform: translateY(0)
+    }
+
+    #quote {
+      width: 820px;
+      background: #fff;
+      box-shadow: 0 8px 35px #0001;
+      min-height: 1120px;
+      padding: 48px 50px
+    }
+
+    .qhead {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      border-bottom: 3px solid var(--quoteColor, #111827);
+      padding-bottom: 18px
+    }
+
+    .brand {
+      font-size: 27px;
+      font-weight: 800;
+      letter-spacing: .4px
+    }
+
+    .brand img {
+      max-height: 58px;
+      max-width: 230px;
+      display: block;
+      object-fit: contain
+    }
+
+    .tag {
+      color: #667085;
+      font-size: 11px;
+      margin-top: 4px
+    }
+
+    .qtitle {
+      text-align: right
+    }
+
+    .qtitle h2 {
+      margin: 0;
+      font-size: 27px;
+      color: var(--quoteColor, #111827)
+    }
+
+    .qtitle div {
+      font-size: 11px;
+      color: #667085;
+      margin-top: 5px
+    }
+
+    .meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 35px;
+      padding: 22px 0
+    }
+
+    .meta h4 {
+      margin: 0 0 7px;
+      font-size: 10px;
+      color: #667085;
+      text-transform: uppercase;
+      letter-spacing: .6px
+    }
+
+    .meta p {
+      margin: 3px 0;
+      font-size: 12px;
+      line-height: 1.45
+    }
+
+    .qtable {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 4px
+    }
+
+    .qtable th {
+      background: var(--quoteColor, #111827);
+      color: #fff;
+      padding: 10px 8px;
+      font-size: 10px;
+      text-align: left
+    }
+
+    .qtable td {
+      border-bottom: 1px solid #eaecf0;
+      padding: 10px 8px;
+      font-size: 11px
+    }
+
+    .qtable .right {
+      text-align: right
+    }
+
+    .qtable .center {
+      text-align: center
+    }
+
+    .totals {
+      margin-left: auto;
+      width: 300px;
+      margin-top: 18px
+    }
+
+    .tr {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      font-size: 12px
+    }
+
+    .tr.total {
+      border-top: 2px solid var(--quoteColor, #111827);
+      margin-top: 5px;
+      padding-top: 10px;
+      font-size: 15px;
+      font-weight: 800
+    }
+
+    .notes {
+      margin-top: 30px;
+      border-top: 1px solid #eaecf0;
+      padding-top: 15px;
+      font-size: 10px;
+      color: #667085;
+      line-height: 1.55
+    }
+
+    .sign {
+      margin-top: 45px;
+      text-align: right;
+      font-size: 11px
+    }
+
+    .signline {
+      display: inline-block;
+      width: 170px;
+      border-top: 1px solid #344054;
+      margin-top: 40px;
+      padding-top: 6px
+    }
+
+    /* ── Document Type Glider Switch ── */
+    .doc-type-wrap {
+      margin-bottom: 14px
+    }
+
+    .doc-type-selector {
+      position: relative;
+      display: flex;
+      border: 1px solid #d0d5dd;
+      border-radius: 10px;
+      padding: 3px;
+      background: #f2f4f7;
+      overflow: hidden
+    }
+
+    .doc-type-glider {
+      position: absolute;
+      top: 3px;
+      bottom: 3px;
+      left: 3px;
+      width: calc(50% - 3px);
+      border-radius: 7px;
+      background: #0369a1;
+      transition: transform .25s cubic-bezier(0.4, 0, 0.2, 1), background-color .25s;
+      z-index: 1;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.12)
+    }
+
+    .doc-type-btn {
+      position: relative;
+      z-index: 2;
+      flex: 1;
+      border: 0;
+      padding: 10px 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      background: transparent;
+      color: #475467;
+      transition: color .2s;
+      text-align: center
+    }
+
+    .doc-type-btn.active {
+      color: #fff
+    }
+
+    /* ── Button Colors ── */
+    .btn-save {
+      background: #059669;
+      color: #fff
+    }
+
+    .btn-new {
+      background: #2563eb;
+      color: #fff
+    }
+
+    .btn-new-inv {
+      background: #0369a1;
+      color: #fff
+    }
+
+    .btn-new-qt {
+      background: #7c3aed;
+      color: #fff
+    }
+
+    .btn-jpeg {
+      background: #d97706;
+      color: #fff
+    }
+
+    .btn-pdf {
+      background: #0891b2;
+      color: #fff
+    }
+
+    .btn-print {
+      background: #374151;
+      color: #fff
+    }
+
+    .btn-whatsapp {
+      background: #25D366;
+      color: #fff
+    }
+
+    .btn-fetch {
+      background: #111827;
+      color: #fff
+    }
+
+    .btn-delete {
+      background: #dc2626;
+      color: #fff
+    }
+
+    .btn-primary {
+      background: #111827;
+      color: #fff
+    }
+
+    .btn-secondary {
+      background: #eef2f6;
+      color: #111827
+    }
+
+    .btn-danger {
+      background: #fff1f0;
+      color: #b42318
+    }
+
+    .whatsapp-btn {
+      background: #25D366;
+      color: #fff
+    }
+
+    .primary {
+      background: #111827;
+      color: #fff
+    }
+
+    .secondary {
+      background: #eef2f6;
+      color: #111827
+    }
+
+    .danger {
+      background: #fff1f0;
+      color: #b42318
+    }
+
+    /* ── Toolbar Button Colors ── */
+    .tb-jpeg {
+      background: #d97706
+    }
+
+    .tb-pdf {
+      background: #0891b2
+    }
+
+    .tb-print {
+      background: #374151
+    }
+
+    .tb-save {
+      background: #059669
+    }
+
+    .tb-wa {
+      background: #25D366
+    }
+
+    @media(max-width:1100px) {
+      .app {
+        grid-template-columns: 380px 1fr
+      }
+
+      .panel {
+        padding: 16px
+      }
+
+      .preview-wrap {
+        padding: 16px
+      }
+
+      .toolbar {
+        right: 14px;
+        top: 12px
+      }
+    }
+
+    @media(max-width:820px) {
+      .app {
+        display: block
+      }
+
+      .panel {
+        border-right: 0;
+        border-bottom: 1px solid var(--line)
+      }
+
+      .preview-wrap {
+        display: block;
+        padding: 12px;
+        overflow-x: hidden
+      }
+
+      .toolbar {
+        position: sticky;
+        top: 0;
+        right: auto;
+        justify-content: center;
+        padding: 8px;
+        margin: -12px -12px 12px;
+        background: rgba(243, 245, 247, .96);
+        backdrop-filter: blur(6px)
+      }
+
+      #quote {
+        width: 100%;
+        min-height: 0;
+        margin: 0 auto;
+        padding: 30px 24px;
+        box-shadow: 0 4px 18px #0001
+      }
+
+      .qhead {
+        flex-wrap: wrap
+      }
+
+      .qtitle {
+        text-align: left;
+        margin-left: auto
+      }
+
+      .meta {
+        gap: 16px
+      }
+
+      .totals {
+        width: min(300px, 100%)
+      }
+    }
+
+    @media(max-width:560px) {
+      .panel {
+        padding: 11px
+      }
+
+      .tabs {
+        position: sticky;
+        top: 0;
+        z-index: 4;
+        background: #fff;
+        padding: 5px 0
+      }
+
+      .grid {
+        grid-template-columns: 1fr
+      }
+
+      .full {
+        grid-column: 1
+      }
+
+      .btns {
+        grid-template-columns: 1fr
+      }
+
+      .items-wrap {
+        overflow-x: auto
+      }
+
+      .items {
+        min-width: 690px
+      }
+
+      .preview-wrap {
+        padding: 8px
+      }
+
+      .toolbar {
+        margin: -8px -8px 8px;
+        gap: 5px
+      }
+
+      .toolbar button {
+        padding: 8px 9px;
+        font-size: 10px
+      }
+
+      #quote {
+        padding: 22px 16px
+      }
+
+      .qhead {
+        display: block
+      }
+
+      .qtitle {
+        text-align: left;
+        margin-top: 18px
+      }
+
+      .brand {
+        font-size: 22px
+      }
+
+      .qtitle h2 {
+        font-size: 23px
+      }
+
+      .meta {
+        grid-template-columns: 1fr;
+        gap: 12px;
+        padding: 16px 0
+      }
+
+      .qtable {
+        table-layout: fixed
+      }
+
+      .qtable th,
+      .qtable td {
+        padding: 7px 5px;
+        font-size: 9px;
+        word-break: break-word
+      }
+
+      .qtable th:nth-child(1) {
+        width: 28px !important
+      }
+
+      .qtable th:nth-child(3) {
+        width: 42px !important
+      }
+
+      .qtable th:nth-child(4) {
+        width: 78px !important
+      }
+
+      .qtable th:nth-child(5) {
+        width: 86px !important
+      }
+
+      .totals {
+        margin-top: 14px
+      }
+
+      .notes {
+        margin-top: 20px
+      }
+
+      .sign {
+        margin-top: 30px
+      }
+    }
+
+    /* ── Print: Invoice Style ── */
+    @media print {
+      body {
+        background: #fff
+      }
+
+      .panel,
+      .toolbar {
+        display: none !important
+      }
+
+      .preview-wrap {
+        padding: 0;
+        display: block
+      }
+
+      .app {
+        display: block
+      }
+
+      #quote {
+        box-shadow: none;
+        width: 210mm;
+        min-height: 297mm;
+        padding: 16mm;
+        margin: 0
+      }
+
+      .qhead {
+        display: flex
+      }
+
+      .qtitle {
+        text-align: right;
+        margin-top: 0
+      }
+
+      .meta {
+        grid-template-columns: 1fr 1fr
+      }
+
+      .items-wrap {
+        overflow: visible
+      }
+
+      .doc-type-wrap {
+        display: none !important
+      }
+    }
+
+    /* ── Print: Invoice-specific ── */
+    body.print-invoice #quote .qhead {
+      border-bottom: 3px solid var(--quoteColor, #111827)
+    }
+
+    body.print-invoice #quote .qtable th {
+      background: var(--quoteColor, #111827)
+    }
+
+    body.print-invoice #quote .tr.total {
+      border-top: 2px solid var(--quoteColor, #111827)
+    }
+
+    /* ── Print: Quotation-specific ── */
+    body.print-quotation #quote .qhead {
+      border-bottom: 3px double var(--quoteColor, #111827)
+    }
+
+    body.print-quotation #quote .qtable th {
+      background: var(--quoteColor, #111827)
+    }
+
+    body.print-quotation #quote .tr.total {
+      border-top: 2px double var(--quoteColor, #111827)
+    }
+
+    /* ── Collapsible Section ── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+      margin: -14px -14px 0;
+      padding: 10px 14px;
+      border-bottom: 1px solid transparent;
+      transition: border-color .2s
+    }
+
+    .section-header:hover {
+      background: #f9fafb;
+      border-radius: 13px 13px 0 0
+    }
+
+    .section-header h2 {
+      margin: 0;
+      font-size: 14px
+    }
+
+    .section-chevron {
+      font-size: 10px;
+      color: #667085;
+      transition: transform .25s ease;
+      display: inline-block;
+      margin-left: 6px
+    }
+
+    .section-header.collapsed .section-chevron {
+      transform: rotate(-90deg)
+    }
+
+    .section-body {
+      overflow: hidden;
+      transition: max-height .3s ease, opacity .25s ease;
+      max-height: 600px;
+      opacity: 1
+    }
+
+    .section-body.collapsed {
+      max-height: 0 !important;
+      opacity: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+      border: none
+    }
+
+    /* ── Toast Notifications ── */
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none
+    }
+
+    .toast {
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+      pointer-events: auto;
+      animation: toastIn .3s ease, toastOut .3s ease 3.7s forwards;
+      max-width: 360px;
+      display: flex;
+      align-items: center;
+      gap: 8px
+    }
+
+    .toast.success {
+      background: #059669
+    }
+
+    .toast.error {
+      background: #dc2626
+    }
+
+    .toast-icon {
+      font-size: 16px;
+      flex-shrink: 0
+    }
+
+    @keyframes toastIn {
+      from {
+        opacity: 0;
+        transform: translateX(40px)
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(0)
+      }
+    }
+
+    @keyframes toastOut {
+      from {
+        opacity: 1;
+        transform: translateX(0)
+      }
+
+      to {
+        opacity: 0;
+        transform: translateX(40px)
+      }
+    }
+
+    /* ── Template Selector ── */
+    .template-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px
+    }
+
+    .template-card {
+      border: 2px solid #d0d5dd;
+      border-radius: 10px;
+      padding: 10px;
+      cursor: pointer;
+      text-align: center;
+      transition: all .2s;
+      background: #fff
+    }
+
+    .template-card:hover {
+      border-color: #98a2b3;
+      background: #f9fafb
+    }
+
+    .template-card.active {
+      border-color: #059669;
+      background: #ecfdf5;
+      box-shadow: 0 0 0 1px #059669
+    }
+
+    .template-card .tpl-preview {
+      height: 60px;
+      border-radius: 6px;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      font-weight: 700;
+      color: #fff;
+      overflow: hidden
+    }
+
+    .tpl-corp-prev {
+      background: linear-gradient(135deg, #111827, #374151)
+    }
+
+    .tpl-govt-prev {
+      background: linear-gradient(135deg, #1e3a5f, #2563eb);
+      border: 2px double #fff
+    }
+
+    .tpl-modern-prev {
+      background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+      color: #374151 !important;
+      border: 1px solid #d1d5db
+    }
+
+    .tpl-navy-prev {
+      background: linear-gradient(135deg, #1e3a5f, #15304f);
+      border-bottom: 3px solid #c9a227
+    }
+
+    .tpl-classic-prev {
+      background: linear-gradient(135deg, #374151, #111827);
+      font-style: italic
+    }
+
+    .tpl-accent-prev {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      border-bottom: 4px solid #fbbf24
+    }
+
+    .tpl-sidebar-prev {
+      background: #1e3a5f;
+      background-image: linear-gradient(90deg, #0f2a44 45%, #1e3a5f 45%)
+    }
+
+    .tpl-gradient-prev {
+      background: linear-gradient(135deg, #6366f1, #a855f7)
+    }
+
+    .tpl-executive-prev {
+      background: linear-gradient(135deg, #0f172a, #1e293b);
+      border-bottom: 3px solid #e2a400
+    }
+
+    .tpl-project-prev {
+      background: linear-gradient(135deg, #e0f2fe, #bae6fd);
+      color: #0369a1 !important;
+      border: 1px solid #7dd3fc
+    }
+
+    .tpl-vintage-prev {
+      background: linear-gradient(135deg, #f5ead6, #e3d5ba);
+      color: #6b4f2a !important;
+      border: 2px double #8a6d3b
+    }
+
+    .tpl-startup-prev {
+      background: linear-gradient(135deg, #fef3c7, #fde68a);
+      color: #92400e !important;
+      border: 1px solid #fcd34d
+    }
+
+    .tpl-twotone-prev {
+      background: linear-gradient(90deg, #0f766e 50%, #134e4a 50%);
+      border-bottom: 3px solid #99f6e4
+    }
+
+    .template-card .tpl-name {
+      font-size: 10px;
+      font-weight: 700;
+      color: #374151
+    }
+
+    /* ════════ TEMPLATE DESIGNS (13) ════════ */
+
+    /* ── 1. Corporate (redesigned) ── */
+    #quote.template-corporate {
+      font-family: 'Segoe UI', Inter, Arial, sans-serif
+    }
+
+    #quote.template-corporate .qhead {
+      border-bottom: 3px solid var(--quoteColor, #111827);
+      padding-bottom: 18px
+    }
+
+    #quote.template-corporate .qtitle h2 {
+      letter-spacing: 1px
+    }
+
+    #quote.template-corporate .qtable th {
+      background: var(--quoteColor, #111827)
+    }
+
+    #quote.template-corporate .tr.total {
+      border-top: 2px solid var(--quoteColor, #111827)
+    }
+
+    /* ── 2. Government (redesigned) ── */
+    #quote.template-govt {
+      font-family: Georgia, 'Times New Roman', serif
+    }
+
+    #quote.template-govt .qhead {
+      border-bottom: 3px double var(--quoteColor, #111827);
+      padding-bottom: 16px
+    }
+
+    #quote.template-govt .brand {
+      font-family: Georgia, 'Times New Roman', serif;
+      letter-spacing: 1px
+    }
+
+    #quote.template-govt .qtitle h2 {
+      font-family: Georgia, 'Times New Roman', serif;
+      letter-spacing: 2px;
+      text-transform: uppercase
+    }
+
+    #quote.template-govt .qtable th {
+      background: var(--quoteColor, #111827);
+      border-bottom: 2px solid var(--quoteColor, #111827);
+      font-family: Georgia, 'Times New Roman', serif;
+      text-transform: uppercase;
+      letter-spacing: .5px
+    }
+
+    #quote.template-govt .qtable td {
+      border-bottom: 1px solid #374151
+    }
+
+    #quote.template-govt .tr.total {
+      border-top: 3px double var(--quoteColor, #111827)
+    }
+
+    #quote.template-govt .tag {
+      font-family: Georgia, 'Times New Roman', serif
+    }
+
+    #quote.template-govt .govt-stamp {
+      margin-top: 30px;
+      border: 2px solid var(--quoteColor, #111827);
+      display: inline-block;
+      padding: 10px 18px;
+      font-size: 10px;
+      font-family: Georgia, 'Times New Roman', serif;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--quoteColor, #111827)
+    }
+
+    /* ── 3. Modern Minimal (redesigned) ── */
+    #quote.template-modern {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      padding: 40px 44px
+    }
+
+    #quote.template-modern .qhead {
+      padding-bottom: 14px;
+      border-bottom: 2px solid #e5e7eb
+    }
+
+    #quote.template-modern .brand {
+      font-weight: 600;
+      font-size: 24px;
+      color: #111827
+    }
+
+    #quote.template-modern .tag {
+      color: #9ca3af;
+      font-size: 10px
+    }
+
+    #quote.template-modern .qtitle h2 {
+      font-weight: 300;
+      font-size: 26px;
+      color: #6b7280;
+      letter-spacing: 3px;
+      text-transform: uppercase
+    }
+
+    #quote.template-modern .qtable {
+      border-collapse: separate;
+      border-spacing: 0
+    }
+
+    #quote.template-modern .qtable th {
+      background: #f9fafb;
+      color: #6b7280;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      font-size: 9px;
+      border-bottom: 2px solid #e5e7eb
+    }
+
+    #quote.template-modern .qtable td {
+      border-bottom: 1px solid #f3f4f6;
+      padding: 12px 8px
+    }
+
+    #quote.template-modern .qtable tr:hover td {
+      background: #f9fafb
+    }
+
+    #quote.template-modern .tr {
+      color: #374151
+    }
+
+    #quote.template-modern .tr.total {
+      border-top: 2px solid #111827;
+      color: #111827
+    }
+
+    #quote.template-modern .notes {
+      color: #9ca3af;
+      border-top: 1px solid #f3f4f6
+    }
+
+    #quote.template-modern .signline {
+      border-top: 1px solid #d1d5db
+    }
+
+    /* ── 4. Elegant Navy ── */
+    #quote.template-navy {
+      font-family: 'Segoe UI', Arial, sans-serif
+    }
+
+    #quote.template-navy .qhead {
+      background: #1e3a5f;
+      color: #fff;
+      margin: -48px -50px 0;
+      padding: 34px 50px;
+      border-bottom: 4px solid #c9a227;
+      align-items: center
+    }
+
+    #quote.template-navy .qhead .brand {
+      color: #fff;
+      font-weight: 700
+    }
+
+    #quote.template-navy .qhead .tag {
+      color: #cbd5e1
+    }
+
+    #quote.template-navy .qhead .qtitle h2 {
+      color: #fff
+    }
+
+    #quote.template-navy .qhead .qtitle div {
+      color: #cbd5e1
+    }
+
+    #quote.template-navy .qtable th {
+      background: #1e3a5f;
+      color: #fff
+    }
+
+    #quote.template-navy .totals {
+      border: 2px solid #1e3a5f;
+      border-radius: 8px;
+      padding: 12px 16px
+    }
+
+    #quote.template-navy .tr.total {
+      border-top: 2px solid #c9a227;
+      color: #1e3a5f
+    }
+
+    #quote.template-navy .signline {
+      border-top: 1px solid #1e3a5f
+    }
+
+    /* ── 5. Classic Serif ── */
+    #quote.template-classic {
+      font-family: Georgia, 'Times New Roman', serif
+    }
+
+    #quote.template-classic .qhead {
+      flex-direction: column;
+      text-align: center;
+      border-bottom: 1px solid #374151;
+      border-top: 4px double #374151;
+      padding: 14px 0 18px
+    }
+
+    #quote.template-classic .qtitle {
+      text-align: center;
+      margin-top: 10px
+    }
+
+    #quote.template-classic .qtitle h2 {
+      letter-spacing: 4px;
+      font-size: 22px
+    }
+
+    #quote.template-classic .qhead .tag {
+      text-align: center
+    }
+
+    #quote.template-classic .qtable th {
+      background: transparent;
+      color: #111827;
+      border-bottom: 2px solid #111827;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      font-size: 10px
+    }
+
+    #quote.template-classic .qtable td {
+      border-bottom: 1px solid #cbd5e1
+    }
+
+    #quote.template-classic .tr.total {
+      border-top: 3px double #111827
+    }
+
+    #quote.template-classic .sign {
+      border-top: 2px double #111827;
+      padding-top: 30px
+    }
+
+    /* ── 6. Bold Accent ── */
+    #quote.template-accent {
+      font-family: 'Segoe UI', Arial, sans-serif
+    }
+
+    #quote.template-accent .qhead {
+      border-bottom: 6px solid var(--quoteColor, #2563eb);
+      padding-bottom: 16px
+    }
+
+    #quote.template-accent .brand {
+      font-weight: 900;
+      font-size: 28px
+    }
+
+    #quote.template-accent .qtitle h2 {
+      font-weight: 900;
+      font-style: italic
+    }
+
+    #quote.template-accent .qtable th {
+      background: var(--quoteColor, #2563eb)
+    }
+
+    #quote.template-accent .qtable tbody tr:nth-child(even) {
+      background: #f1f5f9
+    }
+
+    #quote.template-accent .totals {
+      background: #f8fafc;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 14px 18px
+    }
+
+    #quote.template-accent .tr.total {
+      border-top: 3px solid var(--quoteColor, #2563eb);
+      color: var(--quoteColor, #2563eb)
+    }
+
+    /* ── 7. Stripe Sidebar ── */
+    #quote.template-sidebar {
+      position: relative;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      padding-left: 230px
+    }
+
+    #quote.template-sidebar::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 190px;
+      background: var(--quoteColor, #1e3a5f);
+      z-index: 1
+    }
+
+    #quote.template-sidebar .qhead,
+    #quote.template-sidebar .meta,
+    #quote.template-sidebar .qtable,
+    #quote.template-sidebar .totals,
+    #quote.template-sidebar .notes,
+    #quote.template-sidebar .sign {
+      position: relative;
+      z-index: 2
+    }
+
+    #quote.template-sidebar .qhead {
+      border-bottom: 2px solid #e2e8f0;
+      margin-bottom: 6px
+    }
+
+    #quote.template-sidebar .brand {
+      color: var(--quoteColor, #1e3a5f)
+    }
+
+    #quote.template-sidebar .qtitle {
+      text-align: right
+    }
+
+    #quote.template-sidebar .qtitle h2 {
+      color: var(--quoteColor, #1e3a5f)
+    }
+
+    #quote.template-sidebar .qtable th {
+      background: var(--quoteColor, #1e3a5f)
+    }
+
+    #quote.template-sidebar .meta {
+      background: #f8fafc;
+      border-radius: 10px;
+      padding: 16px 18px;
+      margin: 10px 0
+    }
+
+    #quote.template-sidebar .tr.total {
+      border-top: 2px solid var(--quoteColor, #1e3a5f)
+    }
+
+    /* ── 8. Soft Gradient ── */
+    #quote.template-gradient {
+      font-family: 'Segoe UI', Arial, sans-serif
+    }
+
+    #quote.template-gradient .qhead {
+      background: linear-gradient(135deg, var(--quoteColor, #6366f1), #a855f7);
+      color: #fff;
+      margin: -48px -50px 0;
+      padding: 34px 50px;
+      border-bottom: none;
+      border-radius: 0
+    }
+
+    #quote.template-gradient .qhead .brand {
+      color: #fff
+    }
+
+    #quote.template-gradient .qhead .tag {
+      color: #e0e7ff
+    }
+
+    #quote.template-gradient .qhead .qtitle h2 {
+      color: #fff
+    }
+
+    #quote.template-gradient .qhead .qtitle div {
+      color: #e0e7ff
+    }
+
+    #quote.template-gradient .meta {
+      background: #f5f3ff;
+      border-radius: 12px;
+      padding: 14px 18px;
+      margin: 12px 0
+    }
+
+    #quote.template-gradient .qtable {
+      border-collapse: separate;
+      border-spacing: 0 6px
+    }
+
+    #quote.template-gradient .qtable th {
+      background: transparent;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      border-bottom: 2px solid #e5e7eb
+    }
+
+    #quote.template-gradient .qtable td {
+      background: #f9fafb;
+      border: none;
+      border-radius: 6px
+    }
+
+    #quote.template-gradient .tr.total {
+      border-top: 2px solid var(--quoteColor, #6366f1);
+      color: var(--quoteColor, #6366f1)
+    }
+
+    /* ── 9. Executive Dark ── */
+    #quote.template-executive {
+      font-family: 'Segoe UI', Arial, sans-serif
+    }
+
+    #quote.template-executive .qhead {
+      background: #0f172a;
+      color: #fff;
+      margin: -48px -50px 0;
+      padding: 36px 50px;
+      border-bottom: 4px solid #e2a400;
+      align-items: center
+    }
+
+    #quote.template-executive .qhead .brand {
+      color: #fff;
+      font-weight: 700
+    }
+
+    #quote.template-executive .qhead .tag {
+      color: #94a3b8
+    }
+
+    #quote.template-executive .qhead .qtitle h2 {
+      color: #e2a400
+    }
+
+    #quote.template-executive .qhead .qtitle div {
+      color: #94a3b8
+    }
+
+    #quote.template-executive .qtable th {
+      background: #0f172a
+    }
+
+    #quote.template-executive .qtable td {
+      border-bottom: 1px solid #e2e8f0
+    }
+
+    #quote.template-executive .totals {
+      background: #f8fafc;
+      border-left: 4px solid #0f172a;
+      padding: 12px 16px
+    }
+
+    #quote.template-executive .tr.total {
+      border-top: 2px solid #e2a400;
+      color: #0f172a
+    }
+
+    #quote.template-executive .signline {
+      border-top: 1px solid #0f172a
+    }
+
+    /* ── 10. Project Minimal ── */
+    #quote.template-project {
+      font-family: 'Segoe UI', Arial, sans-serif
+    }
+
+    #quote.template-project .qhead {
+      border-bottom: 1px solid #d1d5db;
+      padding-bottom: 14px
+    }
+
+    #quote.template-project .brand {
+      font-weight: 700;
+      font-size: 24px
+    }
+
+    #quote.template-project .meta {
+      grid-template-columns: 1fr 1fr;
+      gap: 30px
+    }
+
+    #quote.template-project .meta > div {
+      border: 1px solid #e5e7eb;
+      border-left: 4px solid var(--quoteColor, #0ea5e9);
+      border-radius: 8px;
+      padding: 12px 16px
+    }
+
+    #quote.template-project .qtable th {
+      background: #0ea5e9
+    }
+
+    #quote.template-project .qtable td {
+      border-bottom: 1px solid #e5f5fd
+    }
+
+    #quote.template-project .totals {
+      border-top: 2px solid #0ea5e9;
+      padding-top: 12px
+    }
+
+    #quote.template-project .tr.total {
+      border-top: 2px solid #0ea5e9;
+      color: #0ea5e9
+    }
+
+    /* ── 11. Vintage ── */
+    #quote.template-vintage {
+      font-family: Georgia, 'Times New Roman', serif;
+      background: #fdf8f0
+    }
+
+    #quote.template-vintage .qhead {
+      border: 2px solid #8a6d3b;
+      border-style: double;
+      padding: 16px;
+      text-align: center;
+      flex-direction: column
+    }
+
+    #quote.template-vintage .qtitle {
+      text-align: center;
+      margin-top: 8px
+    }
+
+    #quote.template-vintage .brand {
+      color: #6b4f2a
+    }
+
+    #quote.template-vintage .qtitle h2 {
+      letter-spacing: 3px;
+      color: #6b4f2a
+    }
+
+    #quote.template-vintage .qtable th {
+      background: #8a6d3b;
+      color: #fff
+    }
+
+    #quote.template-vintage .qtable td {
+      border-bottom: 1px solid #d9c9a3
+    }
+
+    #quote.template-vintage .meta {
+      background: #f5ead6;
+      padding: 14px 18px;
+      border-radius: 6px
+    }
+
+    #quote.template-vintage .tr.total {
+      border-top: 3px double #8a6d3b;
+      color: #6b4f2a
+    }
+
+    #quote.template-vintage .signline {
+      border-top: 1px solid #8a6d3b
+    }
+
+    /* ── 12. Startup Bright ── */
+    #quote.template-startup {
+      font-family: 'Segoe UI', Arial, sans-serif
+    }
+
+    #quote.template-startup .qhead {
+      border-bottom: 3px solid var(--quoteColor, #f59e0b);
+      padding-bottom: 16px
+    }
+
+    #quote.template-startup .brand {
+      font-weight: 800;
+      font-size: 26px
+    }
+
+    #quote.template-startup .qtitle h2 {
+      background: linear-gradient(90deg, #f59e0b, #ef4444);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      -webkit-text-fill-color: transparent
+    }
+
+    #quote.template-startup .meta h4 {
+      display: inline-block;
+      background: #fef3c7;
+      color: #92400e;
+      padding: 2px 8px;
+      border-radius: 12px
+    }
+
+    #quote.template-startup .qtable {
+      border-collapse: separate;
+      border-spacing: 0 4px
+    }
+
+    #quote.template-startup .qtable th {
+      background: var(--quoteColor, #f59e0b);
+      border-radius: 8px
+    }
+
+    #quote.template-startup .qtable td {
+      background: #fffbeb;
+      border: none;
+      border-radius: 8px
+    }
+
+    #quote.template-startup .tr.total {
+      border-top: 3px solid #f59e0b;
+      color: #b45309
+    }
+
+    /* ── 13. Elegant Two-Tone ── */
+    #quote.template-twotone {
+      font-family: 'Segoe UI', Arial, sans-serif
+    }
+
+    #quote.template-twotone .qhead {
+      background: linear-gradient(90deg, var(--quoteColor, #0f766e), #134e4a);
+      color: #fff;
+      margin: -48px -50px 0;
+      padding: 34px 50px;
+      border-bottom: none;
+      align-items: center
+    }
+
+    #quote.template-twotone .qhead .brand {
+      color: #fff
+    }
+
+    #quote.template-twotone .qhead .tag {
+      color: #99f6e4
+    }
+
+    #quote.template-twotone .qhead .qtitle h2 {
+      color: #fff;
+      letter-spacing: 2px
+    }
+
+    #quote.template-twotone .qhead .qtitle div {
+      color: #99f6e4
+    }
+
+    #quote.template-twotone .qtable th {
+      background: #0f766e
+    }
+
+    #quote.template-twotone .qtable tr:nth-child(even) {
+      background: #f0fdfa
+    }
+
+    #quote.template-twotone .tr.total {
+      border-top: 2px solid #0f766e;
+      color: #0f766e
+    }
+
+    #quote.template-twotone .signline {
+      border-top: 1px solid #0f766e
+    }
+
+    /* ════════ PRINT: Template-specific (invoice + quotation) ════════ */
+
+    body.print-invoice #quote.template-corporate .qhead {
+      border-bottom: 3px solid var(--quoteColor, #111827)
+    }
+    body.print-invoice #quote.template-corporate .qtable th {
+      background: var(--quoteColor, #111827)
+    }
+    body.print-invoice #quote.template-corporate .tr.total {
+      border-top: 2px solid var(--quoteColor, #111827)
+    }
+    body.print-invoice #quote.template-govt .qhead {
+      border-bottom: 3px double var(--quoteColor, #111827)
+    }
+    body.print-invoice #quote.template-govt .qtable th {
+      background: var(--quoteColor, #111827)
+    }
+    body.print-invoice #quote.template-govt .tr.total {
+      border-top: 3px double var(--quoteColor, #111827)
+    }
+    body.print-invoice #quote.template-modern .qhead {
+      border-bottom: 2px solid #e5e7eb
+    }
+    body.print-invoice #quote.template-modern .qtable th {
+      background: #f9fafb;
+      color: #6b7280;
+      border-bottom: 2px solid #e5e7eb
+    }
+    body.print-invoice #quote.template-modern .tr.total {
+      border-top: 2px solid #111827
+    }
+    body.print-invoice #quote.template-navy .qhead {
+      background: #1e3a5f
+    }
+    body.print-invoice #quote.template-navy .qtable th {
+      background: #1e3a5f
+    }
+    body.print-invoice #quote.template-navy .tr.total {
+      border-top: 2px solid #c9a227
+    }
+    body.print-invoice #quote.template-classic .qtable th {
+      color: #111827;
+      border-bottom: 2px solid #111827
+    }
+    body.print-invoice #quote.template-classic .qhead {
+      border-top: 4px double #374151;
+      border-bottom: 1px solid #374151
+    }
+    body.print-invoice #quote.template-classic .tr.total {
+      border-top: 3px double #111827
+    }
+    body.print-invoice #quote.template-accent .qhead {
+      border-bottom: 6px solid var(--quoteColor, #2563eb)
+    }
+    body.print-invoice #quote.template-accent .qtable th {
+      background: var(--quoteColor, #2563eb)
+    }
+    body.print-invoice #quote.template-accent .tr.total {
+      border-top: 3px solid var(--quoteColor, #2563eb)
+    }
+    body.print-invoice #quote.template-sidebar .qtable th {
+      background: var(--quoteColor, #1e3a5f)
+    }
+    body.print-invoice #quote.template-sidebar .tr.total {
+      border-top: 2px solid var(--quoteColor, #1e3a5f)
+    }
+    body.print-invoice #quote.template-gradient .qhead {
+      background: linear-gradient(135deg, var(--quoteColor, #6366f1), #a855f7)
+    }
+    body.print-invoice #quote.template-gradient .tr.total {
+      border-top: 2px solid var(--quoteColor, #6366f1)
+    }
+    body.print-invoice #quote.template-executive .qhead {
+      background: #0f172a
+    }
+    body.print-invoice #quote.template-executive .qtable th {
+      background: #0f172a
+    }
+    body.print-invoice #quote.template-executive .tr.total {
+      border-top: 2px solid #e2a400
+    }
+    body.print-invoice #quote.template-project .qtable th {
+      background: #0ea5e9
+    }
+    body.print-invoice #quote.template-project .tr.total {
+      border-top: 2px solid #0ea5e9
+    }
+    body.print-invoice #quote.template-vintage .qhead {
+      border: 2px solid #8a6d3b;
+      border-style: double
+    }
+    body.print-invoice #quote.template-vintage .qtable th {
+      background: #8a6d3b
+    }
+    body.print-invoice #quote.template-vintage .tr.total {
+      border-top: 3px double #8a6d3b
+    }
+    body.print-invoice #quote.template-startup .qtable th {
+      background: var(--quoteColor, #f59e0b)
+    }
+    body.print-invoice #quote.template-startup .tr.total {
+      border-top: 3px solid #f59e0b
+    }
+    body.print-invoice #quote.template-twotone .qhead {
+      background: linear-gradient(90deg, var(--quoteColor, #0f766e), #134e4a)
+    }
+    body.print-invoice #quote.template-twotone .qtable th {
+      background: #0f766e
+    }
+    body.print-invoice #quote.template-twotone .tr.total {
+      border-top: 2px solid #0f766e
+    }
+
+    body.print-quotation #quote.template-corporate .qhead {
+      border-bottom: 3px double var(--quoteColor, #111827)
+    }
+    body.print-quotation #quote.template-corporate .qtable th {
+      background: var(--quoteColor, #111827)
+    }
+    body.print-quotation #quote.template-corporate .tr.total {
+      border-top: 2px double var(--quoteColor, #111827)
+    }
+    body.print-quotation #quote.template-govt .qhead {
+      border-bottom: 3px double var(--quoteColor, #111827)
+    }
+    body.print-quotation #quote.template-govt .qtable th {
+      background: var(--quoteColor, #111827)
+    }
+    body.print-quotation #quote.template-govt .tr.total {
+      border-top: 3px double var(--quoteColor, #111827)
+    }
+    body.print-quotation #quote.template-modern .qhead {
+      border-bottom: 2px solid #e5e7eb
+    }
+    body.print-quotation #quote.template-modern .qtable th {
+      background: #f9fafb;
+      color: #6b7280
+    }
+    body.print-quotation #quote.template-modern .tr.total {
+      border-top: 2px double var(--quoteColor, #111827)
+    }
+    body.print-quotation #quote.template-navy .qhead {
+      background: #1e3a5f
+    }
+    body.print-quotation #quote.template-navy .qtable th {
+      background: #1e3a5f
+    }
+    body.print-quotation #quote.template-navy .tr.total {
+      border-top: 2px solid #c9a227
+    }
+    body.print-quotation #quote.template-classic .qhead {
+      border-top: 4px double #374151;
+      border-bottom: 1px solid #374151
+    }
+    body.print-quotation #quote.template-classic .qtable th {
+      color: #111827;
+      border-bottom: 2px solid #111827
+    }
+    body.print-quotation #quote.template-classic .tr.total {
+      border-top: 3px double #111827
+    }
+    body.print-quotation #quote.template-accent .qhead {
+      border-bottom: 6px solid var(--quoteColor, #2563eb)
+    }
+    body.print-quotation #quote.template-accent .qtable th {
+      background: var(--quoteColor, #2563eb)
+    }
+    body.print-quotation #quote.template-accent .tr.total {
+      border-top: 3px solid var(--quoteColor, #2563eb)
+    }
+    body.print-quotation #quote.template-sidebar .qtable th {
+      background: var(--quoteColor, #1e3a5f)
+    }
+    body.print-quotation #quote.template-sidebar .tr.total {
+      border-top: 2px solid var(--quoteColor, #1e3a5f)
+    }
+    body.print-quotation #quote.template-gradient .qhead {
+      background: linear-gradient(135deg, var(--quoteColor, #6366f1), #a855f7)
+    }
+    body.print-quotation #quote.template-gradient .tr.total {
+      border-top: 2px solid var(--quoteColor, #6366f1)
+    }
+    body.print-quotation #quote.template-executive .qhead {
+      background: #0f172a
+    }
+    body.print-quotation #quote.template-executive .qtable th {
+      background: #0f172a
+    }
+    body.print-quotation #quote.template-executive .tr.total {
+      border-top: 2px solid #e2a400
+    }
+    body.print-quotation #quote.template-project .qtable th {
+      background: #0ea5e9
+    }
+    body.print-quotation #quote.template-project .tr.total {
+      border-top: 2px solid #0ea5e9
+    }
+    body.print-quotation #quote.template-vintage .qhead {
+      border: 2px solid #8a6d3b;
+      border-style: double
+    }
+    body.print-quotation #quote.template-vintage .qtable th {
+      background: #8a6d3b
+    }
+    body.print-quotation #quote.template-vintage .tr.total {
+      border-top: 3px double #8a6d3b
+    }
+    body.print-quotation #quote.template-startup .qtable th {
+      background: var(--quoteColor, #f59e0b)
+    }
+    body.print-quotation #quote.template-startup .tr.total {
+      border-top: 3px solid #f59e0b
+    }
+    body.print-quotation #quote.template-twotone .qhead {
+      background: linear-gradient(90deg, var(--quoteColor, #0f766e), #134e4a)
+    }
+    body.print-quotation #quote.template-twotone .qtable th {
+      background: #0f766e
+    }
+    body.print-quotation #quote.template-twotone .tr.total {
+      border-top: 2px solid #0f766e
+    }
+  </style>
 </head>
+
 <body>
-<div class="app">
-<aside class="panel">
-<h1>Invoice &amp; Quotation Maker</h1><div class="sub">Create invoices &amp; quotations • Google Sheet sync • Export JPEG/PDF</div>
-<div class="tabs">
-<button class="tab active" onclick="showTab('create',this)">Create</button>
-<button class="tab" onclick="showTab('fetch',this)">Fetch</button>
-<button class="tab" onclick="showTab('settings',this)">Settings</button>
-</div>
+  <div class="app">
+    <aside class="panel">
+      <h1>Invoice &amp; Quotation Maker</h1>
+      <div class="sub">Create invoices &amp; quotations • Google Sheet sync • Export JPEG/PDF</div>
+      <div class="tabs">
+        <button class="tab active" onclick="showTab('create',this)">Create</button>
+        <button class="tab" onclick="showTab('fetch',this)">Fetch</button>
+        <button class="tab" onclick="showTab('settings',this)">Settings</button>
+      </div>
 
-<div id="create" class="tabpage active">
+      <div id="create" class="tabpage active">
 
-<!-- Document Type Selector -->
-<div class="doc-type-wrap">
-<div class="doc-type-selector">
-<button class="doc-type-btn active-invoice" id="docTypeInvoice" onclick="setDocType('invoice')">Invoice</button>
-<button class="doc-type-btn" id="docTypeQuotation" onclick="setDocType('quotation')">Quotation</button>
-</div>
-</div>
+        <!-- Document Type Selector -->
+        <div class="doc-type-wrap">
+          <div class="doc-type-selector">
+            <div class="doc-type-glider" id="docTypeGlider"></div>
+            <button class="doc-type-btn active" id="docTypeInvoice" onclick="setDocType('invoice')">Invoice</button>
+            <button class="doc-type-btn" id="docTypeQuotation" onclick="setDocType('quotation')">Quotation</button>
+          </div>
+        </div>
 
-<div class="section"><h2>Company Details</h2><div class="grid">
-<div class="full"><label>Company Name</label><input id="company" value="YOUR COMPANY NAME"></div>
-<div><label>Phone</label><input id="phone" value="+91 00000 00000"></div><div><label>Email</label><input id="email" value="info@example.com"></div>
-<div class="full"><label>Address</label><textarea id="address">Your address, City, Maharashtra</textarea></div>
-<div><label>GSTIN</label><input id="gst" placeholder="Optional"></div><div><label>Currency</label><input id="currency" value="₹"></div>
-</div></div>
+        <div class="section" id="companySection">
+          <div class="section-header" onclick="toggleCompanySection()">
+            <h2>Company Details</h2><span class="section-chevron" id="companyChevron">▼</span>
+          </div>
+          <div class="section-body" id="companyBody">
+            <div class="grid">
+              <div class="full"><label>Company Name</label><input id="company" value="YOUR COMPANY NAME"></div>
+              <div><label>Phone</label><input id="phone" value="+91 00000 00000"></div>
+              <div><label>Email</label><input id="email" value="info@example.com"></div>
+              <div class="full"><label>Address</label><textarea id="address">Your address, City, Maharashtra</textarea>
+              </div>
+              <div><label>GSTIN</label><input id="gst" placeholder="Optional"></div>
+              <div><label>Currency</label><input id="currency" value="₹"></div>
+            </div>
+          </div>
+        </div>
 
-<div class="section"><h2 id="clientSectionTitle">Client &amp; Invoice</h2><div class="grid">
-<div class="full"><label>Client Name</label><input id="client" value="Client Name"></div>
-<div><label>Client Mobile</label><input id="clientMobile" placeholder="+91..."></div><div><label id="docNoLabel">Invoice No.</label><input id="quoteNo" readonly></div>
-<div><label>Date</label><input id="date" type="date"></div><div><label>Validity</label><input id="validity" value="15 Days"></div>
-<div><label>Tax / GST %</label><input id="tax" type="number" min="0" step="0.01" value="0"></div>
-</div></div>
+        <div class="section">
+          <h2 id="clientSectionTitle">Client &amp; Invoice</h2>
+          <div class="grid">
+            <div class="full"><label>Client Name</label><input id="client" value="Client Name"></div>
+            <div><label>Client Mobile</label><input id="clientMobile" placeholder="+91..."></div>
+            <div><label id="docNoLabel">Invoice No.</label><input id="quoteNo" readonly></div>
+            <div><label>Date</label><input id="date" type="date"></div>
+            <div><label>Validity</label><input id="validity" value="15 Days"></div>
+            <div><label>Tax / GST %</label><input id="tax" type="number" min="0" step="0.01" value="0"></div>
+          </div>
+        </div>
 
-<div class="section"><h2>Pricing &amp; Display</h2><div class="grid">
-<div><label>Default Profit %</label><input id="profit" type="number" min="0" step="0.01" value="20"></div>
-<div><label>Price Mode</label><select id="mode"><option value="markup">Cost + Profit %</option><option value="margin">Selling Margin %</option></select></div>
-<input id="simpleMode" type="hidden" value="false"><div class="full"><button id="simpleModeBtn" class="btn secondary" style="width:100%" onclick="toggleSimpleMode()">Simple Quotation: OFF</button></div>
-</div><div class="hint">Simple Mode ON: client ko Rate aur item-wise Amount hide hoga. Sirf Description + Qty + Grand Total dikhega.</div></div>
+        <div class="section">
+          <h2>Pricing &amp; Display</h2>
+          <div class="grid">
+            <div><label>Default Profit %</label><input id="profit" type="number" min="0" step="0.01" value="20"></div>
+            <div><label>Price Mode</label><select id="mode">
+                <option value="markup">Cost + Profit %</option>
+                <option value="margin">Selling Margin %</option>
+              </select></div>
+            <input id="simpleMode" type="hidden" value="false">
+            <div class="full"><button id="simpleModeBtn" class="btn secondary" style="width:100%"
+                onclick="toggleSimpleMode()">Simple Quotation: OFF</button></div>
+          </div>
+          <div class="hint">Simple Mode ON: client ko Rate aur item-wise Amount hide hoga. Sirf Description + Qty +
+            Grand Total dikhega.</div>
+        </div>
 
-<div class="section"><h2>Items / Rates</h2>
-<div class="items-wrap"><table class="items"><thead><tr><th style="min-width:100px">Item / Search</th><th style="width:46px">Qty</th><th style="width:58px">Cost</th><th style="width:55px">Profit %</th><th style="width:60px">Rate</th><th style="width:65px">Amount</th><th style="width:28px"></th></tr></thead><tbody id="items"></tbody></table></div>
-<button class="btn secondary" style="width:100%;margin-top:9px" onclick="addItem()">+ Add Item</button>
-<div class="hint">Item name type karte waqt catalog ke matching items suggestions me aayenge. Saved rate auto-fill hoga.</div></div>
+        <div class="section">
+          <h2>Items / Rates</h2>
+          <div class="items-wrap">
+            <table class="items">
+              <thead>
+                <tr>
+                  <th style="min-width:100px">Item / Search</th>
+                  <th style="width:46px">Qty</th>
+                  <th style="width:58px">Cost</th>
+                  <th style="width:55px">Profit %</th>
+                  <th style="width:60px">Rate</th>
+                  <th style="width:65px">Amount</th>
+                  <th style="width:28px"></th>
+                </tr>
+              </thead>
+              <tbody id="items"></tbody>
+            </table>
+          </div>
+          <button class="btn secondary" style="width:100%;margin-top:9px" onclick="addItem()">+ Add Item</button>
+          <div class="hint">Item name type karte waqt catalog ke matching items suggestions me aayenge. Saved rate
+            auto-fill hoga.</div>
+        </div>
 
-<div class="section"><h2>Notes</h2><textarea id="notes">Installation and other charges, if applicable, will be discussed separately.
-Quotation is valid for the period mentioned above.</textarea></div>
+        <div class="section">
+          <h2>Notes</h2><textarea id="notes">Installation and other charges, if applicable, will be discussed separately.
+Quotation is valid for the period mentioned above.</textarea>
+        </div>
 
-<div class="section"><div class="btns">
-<button class="btn btn-new" id="btnNewDoc" onclick="newDocument()">+ New Invoice</button>
-<button class="btn btn-save" onclick="saveAndSync()">Save + Sheet</button>
-<button class="btn btn-jpeg" onclick="downloadJPG()">Download JPEG</button>
-<button class="btn btn-pdf" onclick="downloadPDF()">Download PDF</button>
-<button class="btn btn-print" onclick="window.print()">Print</button>
-<button class="btn btn-whatsapp" onclick="shareCurrentQuotation()">Share on WhatsApp</button>
-</div><div id="syncStatus" class="status">Google Sheet: not connected. Add your Apps Script Web App URL in Settings.</div></div>
-</div>
+        <div class="section">
+          <div class="btns">
+            <button class="btn btn-new" id="btnNewDoc" onclick="newDocument()">+ New Invoice</button>
+            <button class="btn btn-save" onclick="saveAndSync()">Save + Sheet</button>
+            <button class="btn btn-jpeg" onclick="downloadJPG()">Download JPEG</button>
+            <button class="btn btn-pdf" onclick="downloadPDF()">Download PDF</button>
+            <button class="btn btn-print" onclick="window.print()">Print</button>
+            <button class="btn btn-whatsapp" onclick="shareCurrentQuotation()">Share on WhatsApp</button>
+          </div>
+          <div id="syncStatus" class="status">Google Sheet: not connected. Add your Apps Script Web App URL in Settings.
+          </div>
+        </div>
+      </div>
 
-<div id="fetch" class="tabpage">
-<div class="section"><h2>Fetch Saved Document</h2>
-<label>Invoice / Quotation Number</label><input id="fetchNo" placeholder="e.g. INV-2026-001 or QT-2026-001">
-<div style="text-align:center;margin:7px;color:#98a2b3;font-size:10px">OR</div>
-<label>Client Name</label><input id="fetchName" placeholder="e.g. Ahmed / ABC Traders">
-<div style="text-align:center;margin:7px;color:#98a2b3;font-size:10px">OR</div>
-<label>Client Mobile Number</label><input id="fetchMobile" placeholder="+91...">
-<div class="grid" style="margin-top:10px">
-<div><label>Search In</label><select id="fetchType"><option value="">All (Invoices + Quotations)</option><option value="invoice">Invoices Only</option><option value="quotation">Quotations Only</option></select></div>
-</div>
-<button class="btn btn-fetch" style="width:100%;margin-top:10px" onclick="fetchInvoices()">Fetch Documents</button>
-<div id="quoteSearchResults" style="margin-top:10px"></div>
-<div class="hint">Invoice/Quotation number, Client Name ya Mobile se search karein. Result select karte hi document load hoga.</div>
-</div></div>
+      <div id="fetch" class="tabpage">
+        <div class="section">
+          <h2>Fetch Saved Document</h2>
+          <label>Invoice / Quotation Number</label><input id="fetchNo" placeholder="e.g. INV-2026-001 or QT-2026-001">
+          <div style="text-align:center;margin:7px;color:#98a2b3;font-size:10px">OR</div>
+          <label>Client Name</label><input id="fetchName" placeholder="e.g. Ahmed / ABC Traders">
+          <div style="text-align:center;margin:7px;color:#98a2b3;font-size:10px">OR</div>
+          <label>Client Mobile Number</label><input id="fetchMobile" placeholder="+91...">
+          <div class="grid" style="margin-top:10px">
+            <div><label>Search In</label><select id="fetchType">
+                <option value="">All (Invoices + Quotations)</option>
+                <option value="invoice">Invoices Only</option>
+                <option value="quotation">Quotations Only</option>
+              </select></div>
+          </div>
+          <button class="btn btn-fetch" style="width:100%;margin-top:10px" onclick="fetchInvoices()">Fetch
+            Documents</button>
+          <div id="quoteSearchResults" style="margin-top:10px"></div>
+          <div class="hint">Invoice/Quotation number, Client Name ya Mobile se search karein. Result select karte hi
+            document load hoga.</div>
+        </div>
+      </div>
 
-<div id="settings" class="tabpage">
-<div class="section"><h2>Document Design</h2>
-<label>Document Theme Color</label><div class="color-row"><input id="quoteColor" type="color" value="#111827"><input id="quoteColorText" value="#111827"></div>
-<div style="margin-top:10px"><label>Company Logo</label><input id="logoFile" type="file" accept="image/*"><div id="logoPreview" class="logo-preview">No logo selected — Company Name will be shown.</div></div>
-<button class="btn secondary" style="width:100%;margin-top:10px" onclick="removeLogo()">Remove Logo</button>
-</div>
-<div class="section"><h2>Google Sheet Connection</h2>
-<label>Google Apps Script Web App URL</label><input id="sheetUrl" value="https://script.google.com/macros/s/AKfycbwjdICVcQ5wKbASM_Dm1Lq3hgasSad5P02XXrURKZKR9Ka0O6i4fgsIKOGylGBBb5PM8A/exec" placeholder="https://script.google.com/macros/s/.../exec">
-<div class="hint">Google Sheet integration ke liye Apps Script Web App URL yahan paste karein.</div>
-<div class="grid" style="margin-top:9px">
-<button class="btn btn-save" onclick="testSheet()">Test Connection</button>
-<button class="btn btn-new" onclick="saveCompanyToSheet()">Save Company to Sheet</button>
-</div>
-<div id="sheetTest" class="status">Not tested.</div>
-</div>
-<div class="section"><h2>Data Info</h2><div class="hint">Company details, Invoices, Quotations, aur Item Catalog — sab Google Sheet me store hota hai. Invoices aur Quotations alag-alag sheets me hain. Koi record delete nahi hota jab naya document save hota hai.</div></div>
-</div>
-</aside>
+      <div id="settings" class="tabpage">
+        <div class="section">
+          <h2>Invoice Template</h2>
+          <label>Select Document Template</label>
+          <div class="template-grid">
+            <div class="template-card" id="tplCorporate" onclick="selectTemplate('corporate')">
+              <div class="tpl-preview tpl-corp-prev">Corporate</div>
+              <div class="tpl-name">Corporate</div>
+            </div>
+            <div class="template-card" id="tplGovt" onclick="selectTemplate('govt')">
+              <div class="tpl-preview tpl-govt-prev">Government</div>
+              <div class="tpl-name">Government</div>
+            </div>
+            <div class="template-card" id="tplModern" onclick="selectTemplate('modern')">
+              <div class="tpl-preview tpl-modern-prev">Modern</div>
+              <div class="tpl-name">Modern Minimal</div>
+            </div>
+            <div class="template-card" id="tplNavy" onclick="selectTemplate('navy')">
+              <div class="tpl-preview tpl-navy-prev">Elegant</div>
+              <div class="tpl-name">Elegant Navy</div>
+            </div>
+            <div class="template-card" id="tplClassic" onclick="selectTemplate('classic')">
+              <div class="tpl-preview tpl-classic-prev">Classic</div>
+              <div class="tpl-name">Classic Serif</div>
+            </div>
+            <div class="template-card" id="tplAccent" onclick="selectTemplate('accent')">
+              <div class="tpl-preview tpl-accent-prev">Accent</div>
+              <div class="tpl-name">Bold Accent</div>
+            </div>
+            <div class="template-card" id="tplSidebar" onclick="selectTemplate('sidebar')">
+              <div class="tpl-preview tpl-sidebar-prev">Sidebar</div>
+              <div class="tpl-name">Stripe Sidebar</div>
+            </div>
+            <div class="template-card" id="tplGradient" onclick="selectTemplate('gradient')">
+              <div class="tpl-preview tpl-gradient-prev">Gradient</div>
+              <div class="tpl-name">Soft Gradient</div>
+            </div>
+            <div class="template-card" id="tplExecutive" onclick="selectTemplate('executive')">
+              <div class="tpl-preview tpl-executive-prev">Executive</div>
+              <div class="tpl-name">Executive Dark</div>
+            </div>
+            <div class="template-card" id="tplProject" onclick="selectTemplate('project')">
+              <div class="tpl-preview tpl-project-prev">Project</div>
+              <div class="tpl-name">Project Minimal</div>
+            </div>
+            <div class="template-card" id="tplVintage" onclick="selectTemplate('vintage')">
+              <div class="tpl-preview tpl-vintage-prev">Vintage</div>
+              <div class="tpl-name">Vintage</div>
+            </div>
+            <div class="template-card" id="tplStartup" onclick="selectTemplate('startup')">
+              <div class="tpl-preview tpl-startup-prev">Startup</div>
+              <div class="tpl-name">Startup Bright</div>
+            </div>
+            <div class="template-card" id="tplTwotone" onclick="selectTemplate('twotone')">
+              <div class="tpl-preview tpl-twotone-prev">Two-Tone</div>
+              <div class="tpl-name">Elegant Two-Tone</div>
+            </div>
+          </div>
+          <div class="hint">Template selection print, PDF, aur JPEG export me bhi apply hota hai. Preview ke liye Create
+            tab kholen.</div>
+        </div>
+        <div class="section">
+          <h2>Document Design</h2>
+          <label>Document Theme Color</label>
+          <div class="color-row"><input id="quoteColor" type="color" value="#111827"><input id="quoteColorText"
+              value="#111827"></div>
+          <div style="margin-top:10px"><label>Company Logo</label><input id="logoFile" type="file" accept="image/*">
+            <div id="logoPreview" class="logo-preview">No logo selected — Company Name will be shown.</div>
+          </div>
+          <button class="btn secondary" style="width:100%;margin-top:10px" onclick="removeLogo()">Remove Logo</button>
+        </div>
+        <div class="section">
+          <h2>Google Sheet Connection</h2>
+          <label>Google Apps Script Web App URL</label><input id="sheetUrl"
+            value="https://script.google.com/macros/s/AKfycbwjdICVcQ5wKbASM_Dm1Lq3hgasSad5P02XXrURKZKR9Ka0O6i4fgsIKOGylGBBb5PM8A/exec"
+            placeholder="https://script.google.com/macros/s/.../exec">
+          <div class="hint">Google Sheet integration ke liye Apps Script Web App URL yahan paste karein.</div>
+          <div class="grid" style="margin-top:9px">
+            <button class="btn btn-save" onclick="testSheet()">Test Connection</button>
+            <button class="btn btn-new" onclick="saveCompanyToSheet()">Save Company to Sheet</button>
+          </div>
+          <div id="sheetTest" class="status">Not tested.</div>
+        </div>
+        <div class="section">
+          <h2>Data Info</h2>
+          <div class="hint">Company details, Invoices, Quotations, aur Item Catalog — sab Google Sheet me store hota
+            hai. Invoices aur Quotations alag-alag sheets me hain. Koi record delete nahi hota jab naya document save
+            hota hai.</div>
+        </div>
+      </div>
+    </aside>
 
-<main class="preview-wrap">
-<div class="toolbar">
-<button class="tb-jpeg" onclick="downloadJPG()">JPEG</button>
-<button class="tb-pdf" onclick="downloadPDF()">PDF</button>
-<button class="tb-print" onclick="window.print()">Print</button>
-<button class="tb-save" onclick="saveAndSync()">Save</button>
-<button class="tb-wa" onclick="shareCurrentQuotation()">WhatsApp</button>
-</div>
-<div id="quote"></div>
-</main>
-</div>
+    <div class="resizer" id="resizer" title="Drag to resize panel (Double-click to reset)">
+      <button class="resizer-toggle" id="resizerToggle" title="Collapse / Expand Panel"
+        onclick="togglePanel()">◀</button>
+    </div>
 
-<script>
-const $=id=>document.getElementById(id);
-const fields=['company','phone','email','address','gst','currency','client','clientMobile','quoteNo','date','validity','tax','profit','mode','simpleMode','notes','quoteColor'];
-const defaults=[['4 channel DVR',1,2400,''],['2MP Camera Dome',4,750,''],['SMPS',1,350,''],['Wire Bundle',1,1000,''],['BNC, DC, PVC Box',1,360,''],['500 GB HDD',1,1750,'']];
-let logoData=localStorage.getItem('quotationLogo')||'';
-let currentDocType='invoice';
+    <main class="preview-wrap">
+      <div class="toolbar">
+        <button class="tb-jpeg" onclick="downloadJPG()">JPEG</button>
+        <button class="tb-pdf" onclick="downloadPDF()">PDF</button>
+        <button class="tb-print" onclick="window.print()">Print</button>
+        <button class="tb-save" id="tbSaveBtn" onclick="saveAndSync()">Save</button>
+        <button class="tb-wa" onclick="shareCurrentQuotation()">WhatsApp</button>
+      </div>
+      <div id="quote"></div>
+    </main>
+  </div>
+  <div class="toast-container" id="toastContainer"></div>
 
-// ─── Tab Switch ───
-function showTab(id,btn){
- document.querySelectorAll('.tabpage').forEach(x=>x.classList.remove('active'));
- document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
- $(id).classList.add('active');btn.classList.add('active');
-}
+  <script>
+    const $ = id => document.getElementById(id);
+    const fields = ['company', 'phone', 'email', 'address', 'gst', 'currency', 'client', 'clientMobile', 'quoteNo', 'date', 'validity', 'tax', 'profit', 'mode', 'simpleMode', 'notes', 'quoteColor'];
+    const defaults = [['4 channel DVR', 1, 2400, ''], ['2MP Camera Dome', 4, 750, ''], ['SMPS', 1, 350, ''], ['Wire Bundle', 1, 1000, ''], ['BNC, DC, PVC Box', 1, 360, ''], ['500 GB HDD', 1, 1750, '']];
+    let logoData = localStorage.getItem('quotationLogo') || '';
+    let currentDocType = 'invoice';
+    let selectedTemplate = localStorage.getItem('quotationTemplate') || 'corporate';
 
-function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
-function money(n){return ($('currency').value||'₹')+' '+Number(n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}
-function calc(cost,p){return $('mode').value==='margin'?(p>=100?cost:cost/(1-p/100)):cost*(1+p/100)}
+    // ─── Toast Notifications ───
+    function showToast(message, type = 'success') {
+      const container = $('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = 'toast ' + (type === 'error' ? 'error' : 'success');
+      toast.innerHTML = `<span class="toast-icon">${type === 'error' ? '✕' : '✓'}</span><span>${esc(message)}</span>`;
+      container.appendChild(toast);
+      const dur = type === 'error' ? 5000 : 3000;
+      toast.style.animation = `toastIn .3s ease,toastOut .3s ease ${(dur - 300) / 1000}s forwards`;
+      setTimeout(() => toast.remove(), dur);
+    }
 
-// ─── Document Type Selector ───
-function setDocType(type){
- currentDocType=type;
- const invBtn=$('docTypeInvoice'),qtBtn=$('docTypeQuotation');
- invBtn.className='doc-type-btn'+(type==='invoice'?' active-invoice':'');
- qtBtn.className='doc-type-btn'+(type==='quotation'?' active-quotation':'');
+    // ─── Template Selection ───
+    const TEMPLATES = [
+      ['corporate', 'Corporate'],
+      ['govt', 'Government'],
+      ['modern', 'Modern Minimal'],
+      ['navy', 'Elegant Navy'],
+      ['classic', 'Classic Serif'],
+      ['accent', 'Bold Accent'],
+      ['sidebar', 'Stripe Sidebar'],
+      ['gradient', 'Soft Gradient'],
+      ['executive', 'Executive Dark'],
+      ['project', 'Project Minimal'],
+      ['vintage', 'Vintage'],
+      ['startup', 'Startup Bright'],
+      ['twotone', 'Elegant Two-Tone']
+    ];
+    function selectTemplate(tpl) {
+      selectedTemplate = tpl;
+      localStorage.setItem('quotationTemplate', tpl);
+      TEMPLATES.forEach(pair => {
+        const el = $('tpl' + (pair[0][0].toUpperCase() + pair[0].slice(1)));
+        if (el) el.classList.toggle('active', pair[0] === tpl);
+      });
+      applyTemplate();
+      showToast('Template: ' + templateName(tpl));
+      render();
+    }
+    function templateName(tpl) {
+      const found = TEMPLATES.find(p => p[0] === tpl);
+      return found ? found[1] : 'Corporate';
+    }
+    function applyTemplate() {
+      const q = $('quote');
+      q.classList.remove.apply(q.classList, TEMPLATES.map(p => 'template-' + p[0]));
+      q.classList.add('template-' + selectedTemplate);
+    }
 
- if(type==='invoice'){
-  $('docNoLabel').textContent='Invoice No.';
-  $('clientSectionTitle').textContent='Client & Invoice';
-  $('btnNewDoc').textContent='+ New Invoice';
-  $('btnNewDoc').className='btn btn-new-inv';
-  document.body.classList.remove('print-quotation');
-  document.body.classList.add('print-invoice');
- }else{
-  $('docNoLabel').textContent='Quotation No.';
-  $('clientSectionTitle').textContent='Client & Quotation';
-  $('btnNewDoc').textContent='+ New Quotation';
-  $('btnNewDoc').className='btn btn-new-qt';
-  document.body.classList.remove('print-invoice');
-  document.body.classList.add('print-quotation');
- }
- fetchNextNumber();
- render();
-}
+    // ─── Collapsible Company Section ───
+    function toggleCompanySection() {
+      const body = $('companyBody'), header = document.querySelector('#companySection .section-header');
+      const collapsed = body.classList.toggle('collapsed');
+      header.classList.toggle('collapsed', collapsed);
+      $('companyChevron').textContent = collapsed ? '▶' : '▼';
+      localStorage.setItem('companySectionCollapsed', collapsed ? '1' : '0');
+    }
+    function initCompanyCollapse() {
+      const collapsed = localStorage.getItem('companySectionCollapsed') === '1';
+      if (collapsed) toggleCompanySection();
+    }
 
-// ─── Auto-Numbering ───
-async function fetchNextNumber(){
- try{
-  const j=await api('getNextNumber',{docType:currentDocType});
-  if(j.ok&&j.docNo){$('quoteNo').value=j.docNo;}
- }catch(e){
-  // Offline fallback
-  const year=new Date().getFullYear();
-  const prefix=currentDocType==='invoice'?'INV':'QT';
-  const key='lastNum_'+currentDocType+'_'+year;
-  let num=parseInt(localStorage.getItem(key)||'0')+1;
-  localStorage.setItem(key,num);
-  $('quoteNo').value=prefix+'-'+year+'-'+String(num).padStart(3,'0');
- }
-}
+    // ─── Tab Switch ───
+    function showTab(id, btn) {
+      document.querySelectorAll('.tabpage').forEach(x => x.classList.remove('active'));
+      document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+      $(id).classList.add('active'); btn.classList.add('active');
+    }
 
-// ─── Items ───
-function addItem(data=['New Item',1,0,'',null,null]){
- const tr=document.createElement('tr');
- tr.innerHTML=`<td><input class="name" list="catalogList" value="${esc(data[0])}"></td>
+    function esc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
+    function money(n) { return ($('currency').value || '₹') + ' ' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
+    function calc(cost, p) { return $('mode').value === 'margin' ? (p >= 100 ? cost : cost / (1 - p / 100)) : cost * (1 + p / 100) }
+
+    // ─── Document Type Selector ───
+    function setDocType(type) {
+      currentDocType = type;
+      const invBtn = $('docTypeInvoice'), qtBtn = $('docTypeQuotation'), glider = $('docTypeGlider');
+      if (type === 'invoice') {
+        invBtn.classList.add('active');
+        qtBtn.classList.remove('active');
+        if (glider) {
+          glider.style.transform = 'translateX(0%)';
+          glider.style.backgroundColor = '#0369a1';
+        }
+        $('docNoLabel').textContent = 'Invoice No.';
+        $('clientSectionTitle').textContent = 'Client & Invoice';
+        $('btnNewDoc').textContent = '+ New Invoice';
+        $('btnNewDoc').className = 'btn btn-new-inv';
+        document.body.classList.remove('print-quotation');
+        document.body.classList.add('print-invoice');
+      } else {
+        qtBtn.classList.add('active');
+        invBtn.classList.remove('active');
+        if (glider) {
+          glider.style.transform = 'translateX(100%)';
+          glider.style.backgroundColor = '#7c3aed';
+        }
+        $('docNoLabel').textContent = 'Quotation No.';
+        $('clientSectionTitle').textContent = 'Client & Quotation';
+        $('btnNewDoc').textContent = '+ New Quotation';
+        $('btnNewDoc').className = 'btn btn-new-qt';
+        document.body.classList.remove('print-invoice');
+        document.body.classList.add('print-quotation');
+      }
+      fetchNextNumber();
+      render();
+    }
+
+    // ─── Resizable Splitter Slider ───
+    function initResizer() {
+      const app = document.querySelector('.app');
+      const resizer = $('resizer');
+      const toggleBtn = $('resizerToggle');
+      if (!resizer) return;
+      let isDragging = false;
+
+      const savedWidth = localStorage.getItem('quotationPanelWidth');
+      if (savedWidth) {
+        app.style.setProperty('--panel-width', savedWidth + 'px');
+      }
+
+      resizer.addEventListener('mousedown', e => {
+        if (e.target === toggleBtn) return;
+        isDragging = true;
+        resizer.classList.add('dragging');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+      });
+
+      window.addEventListener('mousemove', e => {
+        if (!isDragging) return;
+        const newWidth = Math.max(280, Math.min(e.clientX, Math.min(750, window.innerWidth - 350)));
+        app.style.setProperty('--panel-width', newWidth + 'px');
+        localStorage.setItem('quotationPanelWidth', newWidth);
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (isDragging) {
+          isDragging = false;
+          resizer.classList.remove('dragging');
+          document.body.style.cursor = '';
+          document.body.style.userSelect = '';
+        }
+      });
+
+      resizer.addEventListener('dblclick', e => {
+        if (e.target === toggleBtn) return;
+        app.style.setProperty('--panel-width', '440px');
+        localStorage.removeItem('quotationPanelWidth');
+      });
+    }
+
+    function togglePanel() {
+      const app = document.querySelector('.app');
+      const toggleBtn = $('resizerToggle');
+      const isCollapsed = app.classList.toggle('collapsed');
+      toggleBtn.textContent = isCollapsed ? '▶' : '◀';
+      toggleBtn.title = isCollapsed ? 'Expand Panel' : 'Collapse Panel';
+    }
+
+    // ─── Auto-Numbering ───
+    async function fetchNextNumber() {
+      try {
+        const j = await api('getNextNumber', { docType: currentDocType });
+        if (j.ok && j.docNo) { $('quoteNo').value = j.docNo; }
+      } catch (e) {
+        // Offline fallback
+        const year = new Date().getFullYear();
+        const prefix = currentDocType === 'invoice' ? 'INV' : 'QT';
+        const key = 'lastNum_' + currentDocType + '_' + year;
+        let num = parseInt(localStorage.getItem(key) || '0') + 1;
+        localStorage.setItem(key, num);
+        $('quoteNo').value = prefix + '-' + year + '-' + String(num).padStart(3, '0');
+      }
+    }
+
+    // ─── Items ───
+    function addItem(data = ['New Item', 1, 0, '', null, null]) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td><input class="name" list="catalogList" value="${esc(data[0])}"></td>
  <td><input class="num qty" type="number" min="0" step="1" value="${data[1]}"></td>
  <td><input class="num cost" type="number" min="0" step="0.01" value="${data[2]}"></td>
- <td><input class="num ip" type="number" min="0" step="0.01" placeholder="Def" value="${data[3]??''}"></td>
- <td><input class="num rate" type="number" min="0" step="0.01" value="${data[4]??''}" title="Selling Rate"></td>
- <td><input class="num amount" type="number" min="0" step="0.01" value="${data[5]??''}" title="Direct Amount"></td>
+ <td><input class="num ip" type="number" min="0" step="0.01" placeholder="Def" value="${data[3] ?? ''}"></td>
+ <td><input class="num rate" type="number" min="0" step="0.01" value="${data[4] ?? ''}" title="Selling Rate"></td>
+ <td><input class="num amount" type="number" min="0" step="0.01" value="${data[5] ?? ''}" title="Direct Amount"></td>
  <td><button class="del" onclick="this.closest('tr').remove();render()">×</button></td>`;
- $('items').appendChild(tr);
- const nameInput=tr.querySelector('.name');
- nameInput.addEventListener('change',()=>applyCatalog(nameInput,tr));
- nameInput.addEventListener('input',()=>applyCatalog(nameInput,tr));
- tr.querySelectorAll('input').forEach(x=>x.addEventListener('input',e=>onItemInput(e,tr)));
- render();
-}
+      $('items').appendChild(tr);
+      const nameInput = tr.querySelector('.name');
+      nameInput.addEventListener('change', () => applyCatalog(nameInput, tr));
+      nameInput.addEventListener('input', () => applyCatalog(nameInput, tr));
+      tr.querySelectorAll('input').forEach(x => x.addEventListener('input', e => onItemInput(e, tr)));
+      render();
+    }
 
-function applyCatalog(input,tr){
- if(!window.catalog||!window.catalog.length)return;
- const val=input.value.trim().toLowerCase();
- const found=window.catalog.find(x=>x.name.toLowerCase()===val);
- if(found){
-  // Auto-fill cost from catalog
-  if(found.cost)tr.querySelector('.cost').value=found.cost;
-  // Auto-fill profit from catalog
-  if(found.defaultProfit!==''&&found.defaultProfit!=null)tr.querySelector('.ip').value=found.defaultProfit;
-  // Auto-fill last saved rate from catalog
-  if(found.lastRate&&found.lastRate>0){
-   tr.querySelector('.rate').value=found.lastRate;
-  }
- }
- onItemInput(null,tr);
-}
+    function applyCatalog(input, tr) {
+      if (!window.catalog || !window.catalog.length) return;
+      const val = input.value.trim().toLowerCase();
+      const found = window.catalog.find(x => x.name.toLowerCase() === val);
+      if (found) {
+        // Auto-fill cost from catalog
+        if (found.cost) tr.querySelector('.cost').value = found.cost;
+        // Auto-fill profit from catalog
+        if (found.defaultProfit !== '' && found.defaultProfit != null) tr.querySelector('.ip').value = found.defaultProfit;
+        // Auto-fill last saved rate from catalog
+        if (found.lastRate && found.lastRate > 0) {
+          tr.querySelector('.rate').value = found.lastRate;
+        }
+      }
+      onItemInput(null, tr);
+    }
 
-function onItemInput(e,tr){
- const qty=+tr.querySelector('.qty').value||0,cost=+tr.querySelector('.cost').value||0;
- const ip=tr.querySelector('.ip'),rate=tr.querySelector('.rate'),amount=tr.querySelector('.amount');
- if(e&&e.target===amount&&amount.value!==''){
-  const a=+amount.value||0;
-  rate.value=qty?(a/qty).toFixed(2):'0';
-  ip.value=cost?(((rate.value-cost)/cost)*100).toFixed(2):'0';
- }else if(e&&e.target===rate&&rate.value!==''){
-  amount.value=(+rate.value*qty).toFixed(2);
-  ip.value=cost?(((+rate.value-cost)/cost)*100).toFixed(2):'0';
- }else{
-  const p=ip.value.trim()===''?(+$('profit').value||0):+ip.value;
-  const r=calc(cost,p);
-  rate.value=r.toFixed(2);
-  amount.value=(r*qty).toFixed(2);
- }
- render();
-}
+    function onItemInput(e, tr) {
+      const qty = +tr.querySelector('.qty').value || 0, cost = +tr.querySelector('.cost').value || 0;
+      const ip = tr.querySelector('.ip'), rate = tr.querySelector('.rate'), amount = tr.querySelector('.amount');
+      if (e && e.target === amount && amount.value !== '') {
+        const a = +amount.value || 0;
+        rate.value = qty ? (a / qty).toFixed(2) : '0';
+        ip.value = cost ? (((rate.value - cost) / cost) * 100).toFixed(2) : '0';
+      } else if (e && e.target === rate && rate.value !== '') {
+        amount.value = (+rate.value * qty).toFixed(2);
+        ip.value = cost ? (((+rate.value - cost) / cost) * 100).toFixed(2) : '0';
+      } else {
+        const p = ip.value.trim() === '' ? (+$('profit').value || 0) : +ip.value;
+        const r = calc(cost, p);
+        rate.value = r.toFixed(2);
+        amount.value = (r * qty).toFixed(2);
+      }
+      render();
+    }
 
-function toggleSimpleMode(){
- const on=$('simpleMode').value==='true';
- $('simpleMode').value=String(!on);
- syncSimpleButton();
- render();
-}
-function syncSimpleButton(){
- const on=$('simpleMode').value==='true';
- $('simpleModeBtn').textContent='Simple Mode: '+(on?'ON':'OFF');
- $('simpleModeBtn').className='btn '+(on?'btn-new':'secondary');
-}
+    function toggleSimpleMode() {
+      const on = $('simpleMode').value === 'true';
+      $('simpleMode').value = String(!on);
+      syncSimpleButton();
+      render();
+    }
+    function syncSimpleButton() {
+      const on = $('simpleMode').value === 'true';
+      $('simpleModeBtn').textContent = 'Simple Mode: ' + (on ? 'ON' : 'OFF');
+      $('simpleModeBtn').className = 'btn ' + (on ? 'btn-new' : 'secondary');
+    }
 
-function getItems(){
- return [...$('items').querySelectorAll('tr')].map(tr=>{
-  const q=+tr.querySelector('.qty').value||0;
-  const c=+tr.querySelector('.cost').value||0;
-  const r=+tr.querySelector('.rate').value||0;
-  const a=+tr.querySelector('.amount').value||0;
-  const p=c?((r-c)/c*100):0;
-  return {name:tr.querySelector('.name').value||'Item',q,c,p,rate:r,amount:a,profit:a-q*c};
- });
-}
+    function getItems() {
+      return [...$('items').querySelectorAll('tr')].map(tr => {
+        const q = +tr.querySelector('.qty').value || 0;
+        const c = +tr.querySelector('.cost').value || 0;
+        const r = +tr.querySelector('.rate').value || 0;
+        const a = +tr.querySelector('.amount').value || 0;
+        const p = c ? ((r - c) / c * 100) : 0;
+        return { name: tr.querySelector('.name').value || 'Item', q, c, p, rate: r, amount: a, profit: a - q * c };
+      });
+    }
 
-// ─── Preview Render ───
-function render(){
- const it=getItems(),subtotal=it.reduce((s,x)=>s+x.amount,0);
- const taxP=+$('tax').value||0,tax=subtotal*taxP/100,total=subtotal+tax;
- const simple=$('simpleMode').value==='true';
- const docLabel=currentDocType==='invoice'?'INVOICE':'QUOTATION';
+    // ─── Preview Render ───
+    function render() {
+      const it = getItems(), subtotal = it.reduce((s, x) => s + x.amount, 0);
+      const taxP = +$('tax').value || 0, tax = subtotal * taxP / 100, total = subtotal + tax;
+      const simple = $('simpleMode').value === 'true';
+      const docLabel = currentDocType === 'invoice' ? 'INVOICE' : 'QUOTATION';
 
- const rows=simple
-  ?it.map((x,i)=>`<tr><td class="center">${i+1}</td><td>${esc(x.name)}</td><td class="center">${x.q}</td></tr>`).join('')
-  :it.map((x,i)=>`<tr><td class="center">${i+1}</td><td>${esc(x.name)}</td><td class="center">${x.q}</td><td class="right">${money(x.rate)}</td><td class="right">${money(x.amount)}</td></tr>`).join('');
+      const rows = simple
+        ? it.map((x, i) => `<tr><td class="center">${i + 1}</td><td>${esc(x.name)}</td><td class="center">${x.q}</td></tr>`).join('')
+        : it.map((x, i) => `<tr><td class="center">${i + 1}</td><td>${esc(x.name)}</td><td class="center">${x.q}</td><td class="right">${money(x.rate)}</td><td class="right">${money(x.amount)}</td></tr>`).join('');
 
- const col=$('quoteColor').value||'#111827';
- $('quote').style.setProperty('--quoteColor',col);
+      const col = $('quoteColor').value || '#111827';
+      $('quote').style.setProperty('--quoteColor', col);
+      applyTemplate();
 
- const table=simple
-  ?`<table class="qtable"><thead><tr><th style="width:40px">#</th><th>Item Description</th><th style="width:70px">Qty</th></tr></thead><tbody>${rows}</tbody></table>`
-  :`<table class="qtable"><thead><tr><th style="width:40px">#</th><th>Item Description</th><th style="width:55px">Qty</th><th style="width:105px">Rate</th><th style="width:120px">Amount</th></tr></thead><tbody>${rows}</tbody></table>`;
+      const table = simple
+        ? `<table class="qtable"><thead><tr><th style="width:40px">#</th><th>Item Description</th><th style="width:70px">Qty</th></tr></thead><tbody>${rows}</tbody></table>`
+        : `<table class="qtable"><thead><tr><th style="width:40px">#</th><th>Item Description</th><th style="width:55px">Qty</th><th style="width:105px">Rate</th><th style="width:120px">Amount</th></tr></thead><tbody>${rows}</tbody></table>`;
 
- $('quote').innerHTML=`<div class="qhead"><div><div class="brand">${logoData?`<img src="${logoData}" alt="Logo">`:`${esc($('company').value)}`}</div>
- <div class="tag">${esc($('phone').value)} · ${esc($('email').value)}</div><div class="tag">${esc($('address').value)}</div>${$('gst').value?`<div class="tag">GSTIN: ${esc($('gst').value)}</div>`:''}</div>
+      const govtStamp = selectedTemplate === 'govt' ? `<div class="govt-stamp">✠ For Official Use Only</div>` : '';
+
+      $('quote').innerHTML = `<div class="qhead"><div><div class="brand">${logoData ? `<img src="${logoData}" alt="Logo">` : `${esc($('company').value)}`}</div>
+ <div class="tag">${esc($('phone').value)} · ${esc($('email').value)}</div><div class="tag">${esc($('address').value)}</div>${$('gst').value ? `<div class="tag">GSTIN: ${esc($('gst').value)}</div>` : ''}</div>
  <div class="qtitle"><h2>${docLabel}</h2><div>No: ${esc($('quoteNo').value)}</div><div>Date: ${esc($('date').value)}</div></div></div>
  <div class="meta"><div><h4>Prepared For</h4><p><b>${esc($('client').value)}</b></p><p>${esc($('clientMobile').value)}</p></div>
- <div><h4>${docLabel} Details</h4><p>Validity: ${esc($('validity').value)}</p><p>${simple?'Simple':'Detailed'} ${docLabel.toLowerCase()}</p></div></div>
+ <div><h4>${docLabel} Details</h4><p>Validity: ${esc($('validity').value)}</p><p>${simple ? 'Simple' : 'Detailed'} ${docLabel.toLowerCase()}</p></div></div>
  ${table}
- <div class="totals"><div class="tr"><span>${simple?'Total':'Subtotal'}</span><b>${money(subtotal)}</b></div>${taxP?`<div class="tr"><span>GST / Tax (${taxP}%)</span><b>${money(tax)}</b></div>`:''}<div class="tr total"><span>Grand Total</span><b>${money(total)}</b></div></div>
- <div class="notes"><b>Notes & Terms</b><br>${esc($('notes').value).replace(/\n/g,'<br>')}</div><div class="sign"><div class="signline">Authorized Signatory</div></div>`;
- syncSimpleButton();
-}
+ <div class="totals"><div class="tr"><span>${simple ? 'Total' : 'Subtotal'}</span><b>${money(subtotal)}</b></div>${taxP ? `<div class="tr"><span>GST / Tax (${taxP}%)</span><b>${money(tax)}</b></div>` : ''}<div class="tr total"><span>Grand Total</span><b>${money(total)}</b></div></div>
+ ${govtStamp}
+ <div class="notes"><b>Notes & Terms</b><br>${esc($('notes').value).replace(/\n/g, '<br>')}</div><div class="sign"><div class="signline">Authorized Signatory</div></div>`;
+      applyTemplate();
+      syncSimpleButton();
+    }
 
-fields.forEach(id=>{if($(id))$(id).addEventListener('input',render)});
-$('date').value=new Date().toISOString().slice(0,10);
+    fields.forEach(id => { if ($(id)) $(id).addEventListener('input', render) });
+    $('date').value = new Date().toISOString().slice(0, 10);
 
-// ─── Color Sync ───
-$('quoteColor').addEventListener('input',()=>{$('quoteColorText').value=$('quoteColor').value;render()});
-$('quoteColorText').addEventListener('input',()=>{if(/^#[0-9a-f]{6}$/i.test($('quoteColorText').value)){$('quoteColor').value=$('quoteColorText').value;render()}});
-$('logoFile').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{logoData=r.result;localStorage.setItem('quotationLogo',logoData);$('logoPreview').innerHTML=`<img src="${logoData}">`;render()};r.readAsDataURL(f)});
-function removeLogo(){logoData='';localStorage.removeItem('quotationLogo');$('logoPreview').textContent='No logo selected — Company Name will be shown.';render()}
+    // ─── Color Sync ───
+    $('quoteColor').addEventListener('input', () => { $('quoteColorText').value = $('quoteColor').value; render() });
+    $('quoteColorText').addEventListener('input', () => { if (/^#[0-9a-f]{6}$/i.test($('quoteColorText').value)) { $('quoteColor').value = $('quoteColorText').value; render() } });
+    $('logoFile').addEventListener('change', e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { logoData = r.result; localStorage.setItem('quotationLogo', logoData); $('logoPreview').innerHTML = `<img src="${logoData}">`; render() }; r.readAsDataURL(f) });
+    function removeLogo() { logoData = ''; localStorage.removeItem('quotationLogo'); $('logoPreview').textContent = 'No logo selected — Company Name will be shown.'; render() }
 
-// ─── API ───
-async function api(action,payload={}){
- const url=$('sheetUrl').value.trim();if(!url)throw new Error('Google Apps Script Web App URL missing in Settings.');
- const body={action,...payload};
- const res=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)});
- const text=await res.text();let j;try{j=JSON.parse(text)}catch(e){throw new Error('Invalid response from Apps Script.')};if(!j.ok)throw new Error(j.error||'Sheet operation failed');return j;
-}
+    // ─── API ───
+    async function api(action, payload = {}) {
+      const url = $('sheetUrl').value.trim(); if (!url) throw new Error('Google Apps Script Web App URL missing in Settings.');
+      const body = { action, ...payload };
+      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
+      const text = await res.text(); let j; try { j = JSON.parse(text) } catch (e) { throw new Error('Invalid response from Apps Script.') }; if (!j.ok) throw new Error(j.error || 'Sheet operation failed'); return j;
+    }
 
-function documentPayload(){
- return {
-  docType:currentDocType,
-  docNo:$('quoteNo').value,
-  date:$('date').value,
-  company:$('company').value,
-  phone:$('phone').value,
-  email:$('email').value,
-  address:$('address').value,
-  gst:$('gst').value,
-  client:$('client').value,
-  clientMobile:$('clientMobile').value,
-  validity:$('validity').value,
-  tax:$('tax').value,
-  profit:$('profit').value,
-  mode:$('mode').value,
-  simpleMode:$('simpleMode').value,
-  notes:$('notes').value,
-  items:getItems()
- };
-}
+    function documentPayload() {
+      return {
+        docType: currentDocType,
+        docNo: $('quoteNo').value,
+        date: $('date').value,
+        company: $('company').value,
+        phone: $('phone').value,
+        email: $('email').value,
+        address: $('address').value,
+        gst: $('gst').value,
+        client: $('client').value,
+        clientMobile: $('clientMobile').value,
+        validity: $('validity').value,
+        tax: $('tax').value,
+        profit: $('profit').value,
+        mode: $('mode').value,
+        simpleMode: $('simpleMode').value,
+        notes: $('notes').value,
+        items: getItems()
+      };
+    }
 
-// ─── Save ───
-function saveLocal(){
- const data={};fields.forEach(id=>data[id]=$(id).value);
- data.items=getItems();data.docType=currentDocType;
- localStorage.setItem('quotationMakerData_'+currentDocType,JSON.stringify(data));
-}
+    // ─── Save ───
+    function saveLocal() {
+      const data = {}; fields.forEach(id => data[id] = $(id).value);
+      data.items = getItems(); data.docType = currentDocType;
+      localStorage.setItem('quotationMakerData_' + currentDocType, JSON.stringify(data));
+    }
 
-async function saveAndSync(){
- saveLocal();
- try{
-  const j=await api('saveDocument',documentPayload());
-  $('syncStatus').textContent='Saved to Google Sheet: '+(j.message||'Success');
-  // Auto-save company details
-  saveCompanyToSheet();
- }catch(e){
-  $('syncStatus').textContent='Save failed: '+e.message;
- }
-}
+    async function saveAndSync() {
+      saveLocal();
+      const saveBtn = $('tbSaveBtn');
+      if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving...'; }
+      try {
+        const j = await api('saveDocument', documentPayload());
+        $('syncStatus').textContent = 'Saved to Google Sheet: ' + (j.message || 'Success');
+        // Auto-save company details
+        saveCompanyToSheet();
+        // Re-fetch company details to stay in sync with the single source of truth
+        loadCompanyFromSheet();
+        showToast((currentDocType === 'invoice' ? 'Invoice' : 'Quotation') + ' saved successfully');
+      } catch (e) {
+        $('syncStatus').textContent = 'Save failed: ' + e.message;
+        showToast('Save failed. Please try again.', 'error');
+      } finally {
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
+      }
+    }
 
-async function saveCompanyToSheet(){
- try{
-  await api('saveCompany',{company:{
-   name:$('company').value,phone:$('phone').value,email:$('email').value,
-   address:$('address').value,gst:$('gst').value,currency:$('currency').value
-  }});
-  $('sheetTest').textContent='Company details saved to Sheet.';
- }catch(e){
-  // Silent fail for company save
- }
-}
+    async function saveCompanyToSheet() {
+      try {
+        await api('saveCompany', {
+          company: {
+            name: $('company').value, phone: $('phone').value, email: $('email').value,
+            address: $('address').value, gst: $('gst').value, currency: $('currency').value
+          }
+        });
+        $('sheetTest').textContent = 'Company details saved to Sheet.';
+      } catch (e) {
+        // Silent fail for company save
+      }
+    }
 
-async function loadCompanyFromSheet(){
- try{
-  const j=await api('getCompany');
-  if(j.ok&&j.company){
-   const c=j.company;
-   if(c.name)$('company').value=c.name;
-   if(c.phone)$('phone').value=c.phone;
-   if(c.email)$('email').value=c.email;
-   if(c.address)$('address').value=c.address;
-   if(c.gst)$('gst').value=c.gst;
-   if(c.currency)$('currency').value=c.currency;
-  }
- }catch(e){}
-}
+    async function loadCompanyFromSheet() {
+      try {
+        const j = await api('getCompany');
+        if (j.ok && j.company) {
+          const c = j.company;
+          if (c.name) $('company').value = c.name;
+          if (c.phone) $('phone').value = c.phone;
+          if (c.email) $('email').value = c.email;
+          if (c.address) $('address').value = c.address;
+          if (c.gst) $('gst').value = c.gst;
+          if (c.currency) $('currency').value = c.currency;
+        }
+      } catch (e) { }
+    }
 
-async function testSheet(){
- try{const j=await api('ping');$('sheetTest').textContent='Connected: '+(j.message||'Google Sheet ready')}catch(e){$('sheetTest').textContent='Error: '+e.message}
-}
+    async function testSheet() {
+      try { const j = await api('ping'); $('sheetTest').textContent = 'Connected: ' + (j.message || 'Google Sheet ready') } catch (e) { $('sheetTest').textContent = 'Error: ' + e.message }
+    }
 
-// ─── New Document ───
-function newDocument(){
- if(!confirm('Start a new '+(currentDocType==='invoice'?'invoice':'quotation')+'? Current unsaved changes will be lost.'))return;
- // Clear items
- $('items').innerHTML='';
- // Reset client fields
- $('client').value='Client Name';
- $('clientMobile').value='';
- $('date').value=new Date().toISOString().slice(0,10);
- $('validity').value='15 Days';
- $('tax').value='0';
- $('profit').value='20';
- $('simpleMode').value='false';
- $('notes').value='Installation and other charges, if applicable, will be discussed separately.\nQuotation is valid for the period mentioned above.';
- // Fetch next number
- fetchNextNumber();
- // Add default items
- defaults.forEach(x=>addItem(x));
- render();
-}
+    // ─── New Document ───
+    function newDocument() {
+      if (!confirm('Start a new ' + (currentDocType === 'invoice' ? 'invoice' : 'quotation') + '? Current unsaved changes will be lost.')) return;
+      // Clear items
+      $('items').innerHTML = '';
+      // Reset client fields
+      $('client').value = 'Client Name';
+      $('clientMobile').value = '';
+      $('date').value = new Date().toISOString().slice(0, 10);
+      $('validity').value = '15 Days';
+      $('tax').value = '0';
+      $('profit').value = '20';
+      $('simpleMode').value = 'false';
+      $('notes').value = 'Installation and other charges, if applicable, will be discussed separately.\nQuotation is valid for the period mentioned above.';
+      // Fetch next number
+      fetchNextNumber();
+      // Add default items
+      defaults.forEach(x => addItem(x));
+      render();
+    }
 
-// ─── Fetch Documents ───
-async function fetchInvoices(){
- const no=$('fetchNo').value.trim(),name=$('fetchName').value.trim(),mobile=$('fetchMobile').value.trim();
- const docType=$('fetchType').value;
- if(!no&&!name&&!mobile){$('quoteSearchResults').innerHTML='<div class="status">Enter invoice number, client name, or mobile number.</div>';return}
- try{
-  const j=await api('fetchDocuments',{docNo:no,name,mobile,docType});
-  if(!j.rows||!j.rows.length){$('quoteSearchResults').innerHTML='<div class="status">No documents found.</div>';return}
-  $('quoteSearchResults').innerHTML=j.rows.map(r=>{
-   const typeLabel=r.docType==='invoice'?'INV':'QT';
-   const typeColor=r.docType==='invoice'?'#0369a1':'#7c3aed';
-   return `<div class="invoice-result" onclick='loadDocument(${JSON.stringify(r).replace(/'/g,"&#39;")})'>
-    <div><span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;color:#fff;background:${typeColor}">${typeLabel}</span> <b>${esc(r.docNo||r.quoteNo||'')}</b> — ${esc(r.client||'')}</div>
-    <div style="margin-top:4px">${esc(r.date||'')} · ${esc(r.clientMobile||'')} · ${money(+r.total||0)}</div>
-    <button class="btn btn-whatsapp" style="margin-top:6px;padding:6px 8px" onclick='event.stopPropagation();shareWhatsApp(${JSON.stringify(r).replace(/'/g,"&#39;")})'>Share on WhatsApp</button>
+    // ─── Fetch Documents ───
+    async function fetchInvoices() {
+      const no = $('fetchNo').value.trim(), name = $('fetchName').value.trim(), mobile = $('fetchMobile').value.trim();
+      const docType = $('fetchType').value;
+      if (!no && !name && !mobile) { $('quoteSearchResults').innerHTML = '<div class="status">Enter invoice number, client name, or mobile number.</div>'; return }
+      try {
+        const j = await api('fetchDocuments', { docNo: no, name, mobile, docType });
+        if (!j.rows || !j.rows.length) { $('quoteSearchResults').innerHTML = '<div class="status">No documents found.</div>'; return }
+        $('quoteSearchResults').innerHTML = j.rows.map(r => {
+          const typeLabel = r.docType === 'invoice' ? 'INV' : 'QT';
+          const typeColor = r.docType === 'invoice' ? '#0369a1' : '#7c3aed';
+          return `<div class="invoice-result" onclick='loadDocument(${JSON.stringify(r).replace(/'/g, "&#39;")})'>
+    <div><span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;color:#fff;background:${typeColor}">${typeLabel}</span> <b>${esc(r.docNo || r.quoteNo || '')}</b> — ${esc(r.client || '')}</div>
+    <div style="margin-top:4px">${esc(r.date || '')} · ${esc(r.clientMobile || '')} · ${money(+r.total || 0)}</div>
+    <button class="btn btn-whatsapp" style="margin-top:6px;padding:6px 8px" onclick='event.stopPropagation();shareWhatsApp(${JSON.stringify(r).replace(/'/g, "&#39;")})'>Share on WhatsApp</button>
    </div>`;
-  }).join('');
- }catch(e){$('quoteSearchResults').innerHTML='<div class="status">Error: '+esc(e.message)+'</div>'}
-}
+        }).join('');
+      } catch (e) { $('quoteSearchResults').innerHTML = '<div class="status">Error: ' + esc(e.message) + '</div>' }
+    }
 
-function loadDocument(r){
- const docType=r.docType||'quotation';
- setDocType(docType);
- const keys=['company','phone','email','address','gst','client','clientMobile','date','validity','tax','profit','mode','simpleMode','notes'];
- keys.forEach(k=>{if(r[k]!=null&&$(k))$(k).value=r[k]});
- // Use docNo or quoteNo
- $('quoteNo').value=r.docNo||r.quoteNo||'';
- if(r.items){$('items').innerHTML='';r.items.forEach(x=>addItem([x.name,x.q,x.c,x.p,x.rate,x.amount]))}
- render();
- document.querySelector('.tab').click();
- window.scrollTo({top:0,behavior:'smooth'});
-}
+    function loadDocument(r) {
+      const docType = r.docType || 'quotation';
+      setDocType(docType);
+      const keys = ['company', 'phone', 'email', 'address', 'gst', 'client', 'clientMobile', 'date', 'validity', 'tax', 'profit', 'mode', 'simpleMode', 'notes'];
+      keys.forEach(k => { if (r[k] != null && $(k)) $(k).value = r[k] });
+      // Use docNo or quoteNo
+      $('quoteNo').value = r.docNo || r.quoteNo || '';
+      if (r.items) { $('items').innerHTML = ''; r.items.forEach(x => addItem([x.name, x.q, x.c, x.p, x.rate, x.amount])) }
+      render();
+      document.querySelector('.tab').click();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
 
-// ─── Load Catalog ───
-async function loadCatalog(){
- try{
-  const j=await api('getItems');
-  window.catalog=j.items||[];
-  let dl=document.getElementById('catalogList');
-  if(!dl){dl=document.createElement('datalist');dl.id='catalogList';document.body.appendChild(dl)}
-  dl.innerHTML=window.catalog.map(x=>`<option value="${esc(x.name)}">${esc(x.name)}</option>`).join('');
- }catch(e){window.catalog=[]}
-}
+    // ─── Load Catalog ───
+    async function loadCatalog() {
+      try {
+        const j = await api('getItems');
+        window.catalog = j.items || [];
+        let dl = document.getElementById('catalogList');
+        if (!dl) { dl = document.createElement('datalist'); dl.id = 'catalogList'; document.body.appendChild(dl) }
+        dl.innerHTML = window.catalog.map(x => `<option value="${esc(x.name)}">${esc(x.name)}</option>`).join('');
+      } catch (e) { window.catalog = [] }
+    }
 
-// ─── Local Save/Load ───
-function saveData(){
- const data={};fields.forEach(id=>data[id]=$(id).value);
- data.items=getItems();data.docType=currentDocType;
- localStorage.setItem('quotationMakerData',JSON.stringify(data));
- $('syncStatus').textContent='Saved locally in this browser.';
-}
-function loadData(){
- try{
-  const d=JSON.parse(localStorage.getItem('quotationMakerData')||'null');
-  if(!d)return;
-  fields.forEach(id=>{if(d[id]!=null)$(id).value=d[id]});
-  if(d.docType)setDocType(d.docType);
-  $('items').innerHTML='';
-  (d.items||[]).forEach(x=>addItem([x.name,x.q,x.c,x.p,x.rate,x.amount]));
-  $('logoPreview').innerHTML=logoData?`<img src="${logoData}">`:'No logo selected — Company Name will be shown.';
- }catch(e){}
-}
+    // ─── Local Save/Load ───
+    function saveData() {
+      const data = {}; fields.forEach(id => data[id] = $(id).value);
+      data.items = getItems(); data.docType = currentDocType;
+      localStorage.setItem('quotationMakerData', JSON.stringify(data));
+      $('syncStatus').textContent = 'Saved locally in this browser.';
+    }
+    function loadData() {
+      try {
+        const d = JSON.parse(localStorage.getItem('quotationMakerData') || 'null');
+        if (!d) return;
+        fields.forEach(id => { if (d[id] != null) $(id).value = d[id] });
+        if (d.docType) setDocType(d.docType);
+        $('items').innerHTML = '';
+        (d.items || []).forEach(x => addItem([x.name, x.q, x.c, x.p, x.rate, x.amount]));
+        $('logoPreview').innerHTML = logoData ? `<img src="${logoData}">` : 'No logo selected — Company Name will be shown.';
+      } catch (e) { }
+    }
 
-// ─── Init ───
-loadData();
-if(!$('items').children.length)defaults.forEach(x=>addItem(x));
-$('simpleMode').value='false';
-loadCompanyFromSheet();
-loadCatalog();
-fetchNextNumber();
-document.body.classList.add('print-invoice');
-render();
+    // ─── Init ───
+    initResizer();
+    initCompanyCollapse();
+    loadData();
+    if (!$('items').children.length) defaults.forEach(x => addItem(x));
+    $('simpleMode').value = 'false';
+    loadCompanyFromSheet();
+    loadCatalog();
+    fetchNextNumber();
+    document.body.classList.add('print-invoice');
+    render();
+    // Highlight active template card
+    TEMPLATES.forEach(pair => {
+      const el = $('tpl' + (pair[0][0].toUpperCase() + pair[0].slice(1)));
+      if (el) el.classList.toggle('active', pair[0] === selectedTemplate);
+    });
 
-// ─── WhatsApp Share ───
-function shareCurrentQuotation(){
- const raw=String($('clientMobile').value||'').replace(/\D/g,'');
- if(!raw){alert('Client mobile number enter karein.');return;}
- const phone=raw.length===10?'91'+raw:raw;
- const items=getItems();
- const total=items.reduce((sum,x)=>sum+x.amount,0);
- const taxP=+$('tax').value||0;
- const grand=total+(total*taxP/100);
- const simple=$('simpleMode').value==='true';
- const docLabel=currentDocType==='invoice'?'Invoice':'Quotation';
- const lines=[`Hello ${$('client').value||'Client'},`,'',`${docLabel} No: ${$('quoteNo').value||''}`,`Date: ${$('date').value||''}`,'',`Please find your ${docLabel.toLowerCase()} details below.`,...(items||[]).map(x=>simple?`• ${x.name} — Qty: ${x.q}`:`• ${x.name} — ${x.q} × ${x.rate} = ${x.amount}`),'',`Grand Total: ${money(grand)}`,'',`Thank you, ${$('company').value||''}`];
- window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(lines.join('\n')),'_blank');
-}
-function shareWhatsApp(r){
- const raw=String(r.clientMobile||'').replace(/\D/g,'');
- if(!raw){alert('Client mobile number saved nahi hai.');return;}
- const phone=raw.length===10?'91'+raw:raw;
- const docLabel=r.docType==='invoice'?'Invoice':'Quotation';
- const lines=[`Hello ${r.client||'Client'},`,'',`${docLabel} No: ${r.docNo||r.quoteNo||''}`,`Date: ${r.date||''}`,'',`Please find your ${docLabel.toLowerCase()} details below.`,...(r.items||[]).map(x=>`• ${x.name} (Qty: ${x.q})`),'',`Grand Total: ${money(Number(r.total||0))}`,'',`Thank you, ${r.company||''}`];
- window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(lines.join('\n')),'_blank');
-}
+    // ─── WhatsApp Share ───
+    function shareCurrentQuotation() {
+      const raw = String($('clientMobile').value || '').replace(/\D/g, '');
+      if (!raw) { alert('Client mobile number enter karein.'); return; }
+      const phone = raw.length === 10 ? '91' + raw : raw;
+      const items = getItems();
+      const total = items.reduce((sum, x) => sum + x.amount, 0);
+      const taxP = +$('tax').value || 0;
+      const grand = total + (total * taxP / 100);
+      const simple = $('simpleMode').value === 'true';
+      const docLabel = currentDocType === 'invoice' ? 'Invoice' : 'Quotation';
+      const lines = [`Hello ${$('client').value || 'Client'},`, '', `${docLabel} No: ${$('quoteNo').value || ''}`, `Date: ${$('date').value || ''}`, '', `Please find your ${docLabel.toLowerCase()} details below.`, ...(items || []).map(x => simple ? `• ${x.name} — Qty: ${x.q}` : `• ${x.name} — ${x.q} × ${x.rate} = ${x.amount}`), '', `Grand Total: ${money(grand)}`, '', `Thank you, ${$('company').value || ''}`];
+      window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(lines.join('\n')), '_blank');
+    }
+    function shareWhatsApp(r) {
+      const raw = String(r.clientMobile || '').replace(/\D/g, '');
+      if (!raw) { alert('Client mobile number saved nahi hai.'); return; }
+      const phone = raw.length === 10 ? '91' + raw : raw;
+      const docLabel = r.docType === 'invoice' ? 'Invoice' : 'Quotation';
+      const lines = [`Hello ${r.client || 'Client'},`, '', `${docLabel} No: ${r.docNo || r.quoteNo || ''}`, `Date: ${r.date || ''}`, '', `Please find your ${docLabel.toLowerCase()} details below.`, ...(r.items || []).map(x => `• ${x.name} (Qty: ${x.q})`), '', `Grand Total: ${money(Number(r.total || 0))}`, '', `Thank you, ${r.company || ''}`];
+      window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(lines.join('\n')), '_blank');
+    }
 
-// ─── JPEG Export ───
-function downloadJPG(){
- const q=$('quote');
- if(!q||!q.innerHTML.trim()){alert('Preview is not ready.');return;}
- const docNo=$('quoteNo').value||currentDocType;
- const w=Math.max(q.scrollWidth,820),h=Math.max(q.scrollHeight,1120),scale=2;
- // Collect all CSS
- let allCSS='';
- for(const sheet of document.styleSheets){
-  try{for(const rule of sheet.cssRules)allCSS+=rule.cssText+'\n'}catch(e){}
- }
- // Resolve CSS custom property
- const col=$('quoteColor').value||'#111827';
- allCSS=allCSS.replace(/var\(--quoteColor,#111827\)/g,col);
+    // ─── JPEG Export ───
+    function downloadJPG() {
+      const q = $('quote');
+      if (!q || !q.innerHTML.trim()) { alert('Preview is not ready.'); return; }
+      const docNo = $('quoteNo').value || currentDocType;
+      const w = Math.max(q.scrollWidth, 820), h = Math.max(q.scrollHeight, 1120), scale = 2;
+      // Collect all CSS
+      let allCSS = '';
+      for (const sheet of document.styleSheets) {
+        try { for (const rule of sheet.cssRules) allCSS += rule.cssText + '\n' } catch (e) { }
+      }
+      // Resolve CSS custom property
+      const col = $('quoteColor').value || '#111827';
+      allCSS = allCSS.replace(/var\(--quoteColor,#111827\)/g, col);
 
- const clone=q.cloneNode(true);
- clone.style.cssText=`width:${w}px;min-height:${h}px;box-shadow:none;background:#fff;padding:48px 50px;font-family:Inter,Arial,sans-serif;`;
- // Remove all style attributes that reference CSS variables
- clone.querySelectorAll('*').forEach(el=>{
-  const cs=getComputedStyle(el);
-  if(el.style){
-   // Inline computed background for table headers
-   if(el.tagName==='TH'&&el.style.background)el.style.background=col;
-  }
- });
+      const clone = q.cloneNode(true);
+      let tplPadding = '48px 50px';
+      if (selectedTemplate === 'modern') tplPadding = '40px 44px';
+      else if (selectedTemplate === 'sidebar') tplPadding = '48px 50px 40px 230px';
+      clone.style.cssText = `width:${w}px;min-height:${h}px;box-shadow:none;background:#fff;padding:${tplPadding};font-family:Inter,Arial,sans-serif;`;
+      // Remove all style attributes that reference CSS variables
+      clone.querySelectorAll('*').forEach(el => {
+        const cs = getComputedStyle(el);
+        if (el.style) {
+          // Inline computed background for table headers
+          if (el.tagName === 'TH' && el.style.background) el.style.background = col;
+        }
+      });
 
- const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${w*scale}" height="${h*scale}" viewBox="0 0 ${w} ${h}"><foreignObject width="${w}" height="${h}"><div xmlns="http://www.w3.org/1999/xhtml" style="width:${w}px;min-height:${h}px;background:#fff;font-family:Inter,Arial,sans-serif"><style>${allCSS}</style>${clone.outerHTML}</div></foreignObject></svg>`;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w * scale}" height="${h * scale}" viewBox="0 0 ${w} ${h}"><foreignObject width="${w}" height="${h}"><div xmlns="http://www.w3.org/1999/xhtml" style="width:${w}px;min-height:${h}px;background:#fff;font-family:Inter,Arial,sans-serif"><style>${allCSS}</style>${clone.outerHTML}</div></foreignObject></svg>`;
 
- const blob=new Blob([svg],{type:'image/svg+xml;charset=utf-8'});
- const url=URL.createObjectURL(blob);
- const img=new Image();
- img.onload=()=>{
-  const c=document.createElement('canvas');c.width=w*scale;c.height=h*scale;
-  const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(url);
-  c.toBlob(b=>{
-   if(!b){alert('JPEG export failed. Use PDF instead.');return;}
-   const u=URL.createObjectURL(b),a=document.createElement('a');
-   a.href=u;a.download=(docNo.replace(/[^a-z0-9_-]/gi,'_')+'.jpg');
-   document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1500);
-  },'image/jpeg',.95);
- };
- img.onerror=()=>{URL.revokeObjectURL(url);alert('JPEG export failed. Use Print / PDF.');};
- img.src=url;
-}
+      const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement('canvas'); c.width = w * scale; c.height = h * scale;
+        const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+        c.toBlob(b => {
+          if (!b) { alert('JPEG export failed. Use PDF instead.'); return; }
+          const u = URL.createObjectURL(b), a = document.createElement('a');
+          a.href = u; a.download = (docNo.replace(/[^a-z0-9_-]/gi, '_') + '.jpg');
+          document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 1500);
+        }, 'image/jpeg', .95);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); alert('JPEG export failed. Use Print / PDF.'); };
+      img.src = url;
+    }
 
-// ─── PDF Export ───
-function downloadPDF(){
- window.print();
-}
-</script>
-</body></html>
+    // ─── PDF Export ───
+    function downloadPDF() {
+      window.print();
+    }
+  </script>
+</body>
+
+</html>

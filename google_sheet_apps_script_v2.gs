@@ -85,7 +85,7 @@ function doPost(e) {
       case 'getItems':
         return json_({ok:true,items:getItems_()});
       case 'saveDocument':
-        return json_(saveDocument_(data.doc));
+        return json_(saveDocument_(data));
       case 'fetchDocuments':
         return json_(fetchDocuments_(data.docNo||'', data.name||'', data.mobile||'', data.docType||''));
       case 'getCompany':
