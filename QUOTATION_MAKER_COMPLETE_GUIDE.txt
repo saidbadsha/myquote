@@ -1,19 +1,30 @@
-QUOTATION MAKER PRO — COMPLETE SETUP GUIDE
+INVOICE & QUOTATION MAKER PRO — COMPLETE SETUP GUIDE v3
 
 FILES
-1. index.html — main quotation maker
-2. google_sheet_apps_script_v2.gs — Google Sheets backend
+1. index.html — main application (Invoices + Quotations)
+2. google_sheet_apps_script_v2.gs — Google Sheets backend (v3)
 3. This guide
+
+WHAT'S NEW IN v3
+- Separate Invoice and Quotation documents
+- Automatic document numbering (INV-YYYY-XXX / QT-YYYY-XXX)
+- Company details saved to Google Sheet
+- Separate data for Invoices and Quotations (no overwriting)
+- Direct PDF download
+- JPEG export improved to match preview
+- Auto-fetch saved item rates from catalog
+- Professional button colors for different actions
+- Separate print styles for Invoice vs Quotation
 
 GOOGLE SHEET SETUP
 1. Create a Google Sheet.
-2. Extensions → Apps Script.
+2. Extensions > Apps Script.
 3. Delete the default code.
 4. Paste google_sheet_apps_script_v2.gs.
 5. Save.
 
 DEPLOY
-1. Deploy → New deployment.
+1. Deploy > New deployment.
 2. Type: Web app.
 3. Execute as: Me.
 4. Who has access: Anyone.
@@ -22,49 +33,95 @@ DEPLOY
 
 CONNECT HTML
 1. Open index.html in Chrome/Edge.
-2. Settings → Google Apps Script Web App URL.
+2. Settings > Google Apps Script Web App URL.
 3. Paste the /exec URL.
 4. Click Test Connection.
+5. Click "Save Company to Sheet" to persist company details.
 
-GOOGLE SHEETS
-The script creates: Quotations and ItemCatalog.
-Quotations columns: QuoteNo, Date, Company, Phone, Email, Address, GSTIN, Client, ClientMobile, Validity, Tax, DefaultProfit, Mode, SimpleMode, Notes, Total, ItemsJSON, UpdatedAt.
-ItemCatalog columns: ItemName, CostRate, DefaultProfit, UpdatedAt.
+GOOGLE SHEETS (Auto-Created)
+The script automatically creates these sheets:
+- CompanyDetails: Company name, phone, email, address, GSTIN, currency
+- Invoices: All invoice records (separate from quotations)
+- Quotations: All quotation records (separate from invoices)
+- ItemCatalog: Item names, costs, profit %, last saved rates
+- DocCounters: Auto-incrementing counters for invoices and quotations
 
-SIMPLE QUOTATION MODE
-Click “Simple Quotation: OFF” to turn it ON. ON mode hides Rate and item-wise Amount from the client quotation. The final Grand Total remains visible. Turn it OFF for the normal detailed quotation. SimpleMode is saved with the quotation.
+DOCUMENT TYPE
+Select "Invoice" or "Quotation" at the top of the form.
+Each type has its own numbering system:
+- Invoices: INV-2026-001, INV-2026-002, etc.
+- Quotations: QT-2026-001, QT-2026-002, etc.
 
-DIRECT AMOUNT
-Each item has Cost, Profit %, Rate and Amount. If Amount is entered manually, Rate = Amount / Qty and actual Profit % is calculated automatically. If Rate is entered, Amount = Rate × Qty.
+SAVING
+- "Save + Sheet" saves to Google Sheets
+- Invoices save to the Invoices sheet
+- Quotations save to the Quotations sheet
+- Creating a quotation NEVER deletes or overwrites an invoice
+- Company details are auto-saved when you save a document
+
+NEW DOCUMENT
+- Click "+ New Invoice" or "+ New Quotation" to start fresh
+- Current form is cleared
+- Next auto-number is assigned
+- Existing records in Sheet are NOT affected
 
 ITEM CATALOG
-Existing ItemCatalog items appear as browser suggestions when typing an item. Selecting an existing item fills its Cost Rate. New/changed items are synchronized to ItemCatalog when Save + Sheet is used. After manually editing ItemCatalog, refresh the HTML page.
+- When you type an item name, matching catalog items appear as suggestions
+- Selecting a catalog item auto-fills: Cost, Profit %, and Last Saved Rate
+- When you change the rate, it becomes the new saved rate for next time
+- Catalog is updated every time you save a document
 
-FETCH INVOICE
-Fetch Invoice supports search by: quotation/invoice number, Client Name, or Client Mobile Number. Select a result to restore the quotation.
+JPEG EXPORT
+- Click "JPEG" or "Download JPEG"
+- The exported image matches the preview layout exactly
+- Company details, items, amounts, totals — everything is captured
+
+PDF EXPORT
+- Click "PDF" or "Download PDF"
+- Opens the browser print dialog
+- Select "Save as PDF" as destination
+- The document prints with proper formatting
+- Invoice and Quotation have separate print styles
+
+PRINT STYLES
+- Invoice: Clean bordered header, standard table styling
+- Quotation: Double-line header, themed accents
+- Print hides the editor panel and shows only the document
+
+FETCH / SEARCH
+- Search by document number, client name, or mobile number
+- Filter: All, Invoices Only, or Quotations Only
+- Results show document type badge (INV or QT)
+- Click a result to load it for editing
 
 WHATSAPP SHARE
-Every fetched result has “Share on WhatsApp”. It opens WhatsApp with a ready message containing client name, quotation number, date, items and Grand Total. For an Indian 10-digit number, 91 is added automatically. This uses wa.me and does not require WhatsApp Business API.
+- Click "Share on WhatsApp" on any document
+- Opens WhatsApp with pre-filled message
+- Includes document type, number, items, and grand total
 
-LOGO & COLOR
-Settings → Company Logo → Choose File. If no logo is selected, Company Name is displayed. Settings → Invoice Theme Color changes quotation heading, table header and accents.
-
-SAVE / EXPORT
-Save + Sheet stores the quotation in Google Sheets and updates ItemCatalog. Download JPEG creates a client-ready image. Print / PDF can be used to save an A4 PDF.
+SIMPLE MODE
+- Toggle "Simple Mode" ON/OFF
+- ON: Hides Rate and item-wise Amount from client view
+- Shows only: Item Description + Qty + Grand Total
+- OFF: Full detailed view with Rate and Amount columns
 
 TROUBLESHOOTING
 - Use the /exec URL, not /dev.
 - Web app must be Execute as Me and access Anyone.
 - If Apps Script is changed, update/redeploy the web app version.
-- If Fetch finds nothing, first confirm the quotation was saved with Save + Sheet.
-- If Item suggestions are empty, confirm ItemCatalog has data and refresh the HTML.
-- WhatsApp requires a valid client mobile number.
-
-OLD SHEET NOTE
-If you already have the previous Quotations sheet, back it up first. The updated backend adds the SimpleMode column and changes the column layout. A fresh blank Google Sheet is the easiest setup.
+- If connection fails, check URL and Sheet permissions.
+- If auto-number fails offline, it falls back to localStorage.
 
 SECURITY
-Do not store passwords, bank credentials, private API keys or other highly sensitive information in the quotation sheet.
+Do not store passwords, bank credentials, or private API keys.
 
 RECOMMENDED WORKFLOW
-Create → Add Items → Set Profit or Direct Amount → Simple ON/OFF → Check Preview → Save + Sheet → Download JPEG/PDF → Fetch later by Invoice/Name/Mobile → Share on WhatsApp.
+1. Select Invoice or Quotation at top
+2. Enter Company Details (auto-saved to Sheet)
+3. Enter Client Details
+4. Auto-number is assigned
+5. Add Items (catalog auto-fills saved rates)
+6. Check Preview
+7. Save + Sheet
+8. Download JPEG or PDF
+9. Share on WhatsApp

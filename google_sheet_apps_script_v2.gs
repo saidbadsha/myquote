@@ -1,111 +1,279 @@
 /*
-QUOTATION MAKER — GOOGLE APPS SCRIPT
--------------------------------------
-1) Google Sheet banayein.
+QUOTATION & INVOICE MAKER — GOOGLE APPS SCRIPT v3
+---------------------------------------------------
+Google Sheets as the single data source for:
+  - Company Details
+  - Invoices
+  - Quotations
+  - Item Catalog (with saved rates)
+  - Document Counters (auto-numbering)
+
+Setup:
+1) Create a Google Sheet.
 2) Extensions > Apps Script open karein.
 3) Is complete code ko paste karein.
 4) Deploy > New deployment > Web app
    Execute as: Me
    Who has access: Anyone
-5) /exec URL ko quotation_maker_pro.html ke Settings > Google Apps Script Web App URL me paste karein.
+5) /exec URL ko index.html ke Settings me paste karein.
 
-Sheet automatically "Quotations" and "ItemCatalog" sheets create karegi.
+Sheets automatically create hongi:
+  - CompanyDetails
+  - Invoices
+  - Quotations
+  - ItemCatalog
+  - DocCounters
 */
 
 const SS = SpreadsheetApp.getActiveSpreadsheet();
-const QUOTE_SHEET = 'Quotations';
-const ITEM_SHEET = 'ItemCatalog';
 
 function setup_() {
-  const q = SS.getSheetByName(QUOTE_SHEET) || SS.insertSheet(QUOTE_SHEET);
-  const i = SS.getSheetByName(ITEM_SHEET) || SS.insertSheet(ITEM_SHEET);
+  // CompanyDetails sheet
+  let cd = SS.getSheetByName('CompanyDetails');
+  if (!cd) {
+    cd = SS.insertSheet('CompanyDetails');
+    cd.appendRow(['CompanyName','Phone','Email','Address','GSTIN','Currency','UpdatedAt']);
+  }
 
-  const qh = ['QuoteNo','Date','Company','Phone','Email','Address','GSTIN','Client','ClientMobile','Validity','Tax','DefaultProfit','Mode','SimpleMode','Notes','Total','ItemsJSON','UpdatedAt'];
-  if (q.getLastRow() === 0) q.appendRow(qh);
-  const ih = ['ItemName','CostRate','DefaultProfit','UpdatedAt'];
-  if (i.getLastRow() === 0) i.appendRow(ih);
+  // Invoices sheet
+  let inv = SS.getSheetByName('Invoices');
+  if (!inv) {
+    inv = SS.insertSheet('Invoices');
+    inv.appendRow([
+      'DocNo','Date','Company','Phone','Email','Address','GSTIN','Client','ClientMobile',
+      'Validity','Tax','DefaultProfit','Mode','SimpleMode','Notes','Total','ItemsJSON','UpdatedAt'
+    ]);
+  }
+
+  // Quotations sheet
+  let qt = SS.getSheetByName('Quotations');
+  if (!qt) {
+    qt = SS.insertSheet('Quotations');
+    qt.appendRow([
+      'DocNo','Date','Company','Phone','Email','Address','GSTIN','Client','ClientMobile',
+      'Validity','Tax','DefaultProfit','Mode','SimpleMode','Notes','Total','ItemsJSON','UpdatedAt'
+    ]);
+  }
+
+  // ItemCatalog sheet
+  let ic = SS.getSheetByName('ItemCatalog');
+  if (!ic) {
+    ic = SS.insertSheet('ItemCatalog');
+    ic.appendRow(['ItemName','CostRate','DefaultProfit','LastRate','UpdatedAt']);
+  }
+
+  // DocCounters sheet
+  let dc = SS.getSheetByName('DocCounters');
+  if (!dc) {
+    dc = SS.insertSheet('DocCounters');
+    dc.appendRow(['DocType','Year','LastNumber']);
+  }
 }
 
 function doGet(e) {
   setup_();
-  return json_({ok:true,message:'Quotation Maker Google Sheet API is running'});
+  return json_({ok:true,message:'Quotation & Invoice Maker API v3 is running'});
 }
 
 function doPost(e) {
   try {
     setup_();
     const data = JSON.parse(e.postData.contents || '{}');
-    if (data.action === 'ping') return json_({ok:true,message:'Connected'});
-    if (data.action === 'getItems') return json_({ok:true,items:getItems_()});
-    if (data.action === 'saveQuotation') return json_(saveQuotation_(data.quotation));
-    if (data.action === 'fetchQuotations') return json_(fetchQuotations_(data.quoteNo || '', data.name || '', data.mobile || ''));
-    return json_({ok:false,error:'Unknown action'});
+    switch(data.action) {
+      case 'ping':
+        return json_({ok:true,message:'Connected'});
+      case 'getItems':
+        return json_({ok:true,items:getItems_()});
+      case 'saveDocument':
+        return json_(saveDocument_(data.doc));
+      case 'fetchDocuments':
+        return json_(fetchDocuments_(data.docNo||'', data.name||'', data.mobile||'', data.docType||''));
+      case 'getCompany':
+        return json_(getCompany_());
+      case 'saveCompany':
+        return json_(saveCompany_(data.company));
+      case 'getNextNumber':
+        return json_(getNextNumber_(data.docType||'quotation'));
+      default:
+        return json_({ok:false,error:'Unknown action: '+data.action});
+    }
   } catch(err) {
     return json_({ok:false,error:String(err)});
   }
 }
 
-function saveQuotation_(q) {
-  const sh = SS.getSheetByName(QUOTE_SHEET);
+// ─── Company Details ───
+
+function getCompany_() {
+  const sh = SS.getSheetByName('CompanyDetails');
+  if (sh.getLastRow() < 2) return {ok:true,company:null};
+  const r = sh.getRange(2,1,1,7).getValues()[0];
+  return {ok:true,company:{
+    name:String(r[0]||''), phone:String(r[1]||''), email:String(r[2]||''),
+    address:String(r[3]||''), gst:String(r[4]||''), currency:String(r[5]||'₹')
+  }};
+}
+
+function saveCompany_(c) {
+  const sh = SS.getSheetByName('CompanyDetails');
+  const row = [c.name||'',c.phone||'',c.email||'',c.address||'',c.gst||'',c.currency||'₹',new Date()];
+  if (sh.getLastRow() < 2) sh.appendRow(row);
+  else sh.getRange(2,1,1,7).setValues([row]);
+  return {ok:true,message:'Company details saved'};
+}
+
+// ─── Document Save (Invoice or Quotation) ───
+
+function saveDocument_(d) {
+  if (!d) return {ok:false,error:'No document data'};
+  const type = (d.docType || 'quotation').toLowerCase();
+  const sheetName = type === 'invoice' ? 'Invoices' : 'Quotations';
+  const sh = SS.getSheetByName(sheetName);
   const values = sh.getDataRange().getValues();
-  const items = q.items || [];
-  const total = items.reduce((s,x)=>s + Number(x.amount || 0),0) * (1 + Number(q.tax||0)/100);
-  const itemsJSON = JSON.stringify(items);
+
+  const items = d.items || [];
+  const subtotal = items.reduce((s,x) => s + Number(x.amount || 0), 0);
+  const total = subtotal * (1 + Number(d.tax || 0) / 100);
+
   const row = [
-    q.quoteNo,q.date,q.company,q.phone,q.email,q.address,q.gst,q.client,q.clientMobile,
-    q.validity,q.tax,q.profit,q.mode,q.simpleMode,q.notes,total,itemsJSON,new Date()
+    d.docNo, d.date, d.company, d.phone, d.email, d.address, d.gst,
+    d.client, d.clientMobile, d.validity, d.tax, d.profit, d.mode,
+    d.simpleMode, d.notes, total, JSON.stringify(items), new Date()
   ];
 
+  // Find existing record by DocNo
   let found = -1;
-  for (let r=1;r<values.length;r++) {
-    if (String(values[r][0]).trim() === String(q.quoteNo).trim()) { found=r+1; break; }
+  for (let r = 1; r < values.length; r++) {
+    if (String(values[r][0]).trim() === String(d.docNo).trim()) {
+      found = r + 1;
+      break;
+    }
   }
-  if (found > 0) sh.getRange(found,1,1,row.length).setValues([row]);
+  if (found > 0) sh.getRange(found, 1, 1, row.length).setValues([row]);
   else sh.appendRow(row);
 
-  const itemSh = SS.getSheetByName(ITEM_SHEET);
-  const catalog = getItems_();
-  items.forEach(x=>{
-    const name=String(x.name||'').trim();
+  // Update ItemCatalog with rates
+  updateItemCatalog_(items);
+
+  return {ok:true, message:(type === 'invoice' ? 'Invoice' : 'Quotation')+' saved', total:total};
+}
+
+// ─── Item Catalog ───
+
+function updateItemCatalog_(items) {
+  const sh = SS.getSheetByName('ItemCatalog');
+  items.forEach(x => {
+    const name = String(x.name||'').trim();
     if (!name) return;
-    let rowNo=-1;
-    for(let r=1;r<itemSh.getLastRow();r++){
-      if(String(itemSh.getRange(r+1,1).getValue()).trim().toLowerCase()===name.toLowerCase()){rowNo=r+1;break;}
+    let rowNo = -1;
+    for (let r = 1; r < sh.getLastRow(); r++) {
+      if (String(sh.getRange(r+1,1).getValue()).trim().toLowerCase() === name.toLowerCase()) {
+        rowNo = r + 1;
+        break;
+      }
     }
-    const itemRow=[name,Number(x.c||0),Number(x.p||0),new Date()];
-    if(rowNo>0)itemSh.getRange(rowNo,1,1,4).setValues([itemRow]);
-    else itemSh.appendRow(itemRow);
+    // Save rate as LastRate (column 4) along with cost and profit
+    const itemRow = [name, Number(x.c||0), Number(x.p||0), Number(x.rate||0), new Date()];
+    if (rowNo > 0) sh.getRange(rowNo, 1, 1, 5).setValues([itemRow]);
+    else sh.appendRow(itemRow);
   });
-  return {ok:true,message:'Quotation saved',total:total};
 }
 
 function getItems_() {
-  const sh=SS.getSheetByName(ITEM_SHEET);
-  if(sh.getLastRow()<2)return [];
-  return sh.getRange(2,1,sh.getLastRow()-1,4).getValues()
-    .filter(r=>String(r[0]).trim())
-    .map(r=>({name:String(r[0]),cost:Number(r[1]||0),defaultProfit:Number(r[2]||0)}));
+  const sh = SS.getSheetByName('ItemCatalog');
+  if (sh.getLastRow() < 2) return [];
+  return sh.getRange(2, 1, sh.getLastRow()-1, 5).getValues()
+    .filter(r => String(r[0]).trim())
+    .map(r => ({
+      name: String(r[0]),
+      cost: Number(r[1]||0),
+      defaultProfit: Number(r[2]||0),
+      lastRate: Number(r[3]||0)
+    }));
 }
 
-function fetchQuotations_(no,name,mobile) {
-  const sh=SS.getSheetByName(QUOTE_SHEET);
-  if(sh.getLastRow()<2)return {ok:true,rows:[]};
-  const rows=sh.getRange(2,1,sh.getLastRow()-1,18).getValues();
-  const out=[];
-  rows.forEach(r=>{
-    const qno=String(r[0]||'').trim(), mob=String(r[8]||'').replace(/\D/g,'');
-    const noMatch=no && qno.toLowerCase().includes(String(no).toLowerCase());
-    const nameMatch=name && String(r[7]||'').toLowerCase().includes(String(name).toLowerCase());
-    const mobMatch=mobile && mob.includes(String(mobile).replace(/\D/g,''));
-    if((no && noMatch)||(name && nameMatch)||(mobile && mobMatch)) {
-      let items=[];try{items=JSON.parse(r[15]||'[]')}catch(e){}
-      out.push({quoteNo:r[0],date:r[1],company:r[2],phone:r[3],email:r[4],address:r[5],gst:r[6],
-        client:r[7],clientMobile:r[8],validity:r[9],tax:r[10],profit:r[11],mode:r[12],simpleMode:r[13],notes:r[14],
-        total:r[15],items:items});
+// ─── Auto-Numbering ───
+
+function getNextNumber_(docType) {
+  const type = (docType || 'quotation').toLowerCase();
+  const year = new Date().getFullYear();
+  const prefix = type === 'invoice' ? 'INV' : 'QT';
+  const sh = SS.getSheetByName('DocCounters');
+  const values = sh.getDataRange().getValues();
+
+  let lastNum = 0;
+  let counterRow = -1;
+
+  for (let r = 1; r < values.length; r++) {
+    if (String(values[r][0]).toLowerCase() === type && Number(values[r][1]) === year) {
+      lastNum = Number(values[r][2] || 0);
+      counterRow = r + 1;
+      break;
+    }
+  }
+
+  const nextNum = lastNum + 1;
+  const docNo = prefix + '-' + year + '-' + String(nextNum).padStart(3, '0');
+
+  if (counterRow > 0) {
+    sh.getRange(counterRow, 3).setValue(nextNum);
+  } else {
+    sh.appendRow([type, year, nextNum]);
+  }
+
+  return {ok:true, docNo:docNo, nextNumber:nextNum};
+}
+
+// ─── Fetch Documents ───
+
+function fetchDocuments_(docNo, name, mobile, docType) {
+  const results = [];
+
+  // Search in Invoices (if no type filter, or type is 'invoice')
+  if (!docType || docType === 'invoice') {
+    results.push(...searchSheet_('Invoices', 'invoice', docNo, name, mobile));
+  }
+  // Search in Quotations (if no type filter, or type is 'quotation')
+  if (!docType || docType === 'quotation') {
+    results.push(...searchSheet_('Quotations', 'quotation', docNo, name, mobile));
+  }
+
+  return {ok:true, rows:results};
+}
+
+function searchSheet_(sheetName, docType, docNo, name, mobile) {
+  const sh = SS.getSheetByName(sheetName);
+  if (sh.getLastRow() < 2) return [];
+
+  const rows = sh.getRange(2, 1, sh.getLastRow()-1, 18).getValues();
+  const out = [];
+
+  rows.forEach(r => {
+    const dNo = String(r[0]||'').trim();
+    const mob = String(r[8]||'').replace(/\D/g,'');
+
+    const noMatch = docNo && dNo.toLowerCase().includes(String(docNo).toLowerCase());
+    const nameMatch = name && String(r[7]||'').toLowerCase().includes(String(name).toLowerCase());
+    const mobMatch = mobile && mob.includes(String(mobile).replace(/\D/g,''));
+
+    if ((docNo && noMatch) || (name && nameMatch) || (mobile && mobMatch)) {
+      let items = [];
+      try { items = JSON.parse(r[16]||'[]'); } catch(e) {}
+      out.push({
+        docType: docType,
+        docNo: r[0], date: r[1], company: r[2], phone: r[3],
+        email: r[4], address: r[5], gst: r[6],
+        client: r[7], clientMobile: r[8], validity: r[9],
+        tax: r[10], profit: r[11], mode: r[12], simpleMode: r[13],
+        notes: r[14], total: r[15], items: items
+      });
     }
   });
-  return {ok:true,rows:out};
+
+  return out;
 }
+
+// ─── Utility ───
 
 function json_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))
