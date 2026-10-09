@@ -2084,6 +2084,7 @@
       <div class="tabs">
         <button class="tab active" onclick="showTab('create',this)">Create</button>
         <button class="tab" onclick="showTab('fetch',this)">Fetch</button>
+        <button class="tab" id="tabQuestionMakerBtn" onclick="showTab('questionMakerTab',this)">Question Maker</button>
         <button class="tab" onclick="showTab('settings',this)">Settings</button>
       </div>
 
@@ -2104,13 +2105,31 @@
           </div>
           <div class="section-body" id="companyBody">
             <div class="grid">
-              <div class="full"><label>Company Name</label><input id="company" value="YOUR COMPANY NAME"></div>
+              <div class="full"><label>Company Name</label><input id="company" value="YOUR COMPANY NAME" onchange="checkCompanyTemplateOnNameChange()"></div>
               <div><label>Phone</label><input id="phone" value="+91 00000 00000"></div>
               <div><label>Email</label><input id="email" value="info@example.com"></div>
               <div class="full"><label>Address</label><textarea id="address">Your address, City, Maharashtra</textarea>
               </div>
               <div><label>GSTIN</label><input id="gst" placeholder="Optional"></div>
               <div><label>Currency</label><input id="currency" value="₹"></div>
+              <div class="full">
+                <label>Select Template for Company</label>
+                <select id="companyTemplateSelect" onchange="onCompanyTemplateSelectChange()">
+                  <option value="corporate">Corporate</option>
+                  <option value="govt">Government Formal</option>
+                  <option value="modern">Modern Minimal</option>
+                  <option value="navy">Elegant Navy</option>
+                  <option value="classic">Classic Serif</option>
+                  <option value="accent">Accent Gold</option>
+                  <option value="sidebar">Sidebar Accent</option>
+                  <option value="gradient">Soft Gradient</option>
+                  <option value="executive">Executive Dark</option>
+                  <option value="project">Project Minimal</option>
+                  <option value="vintage">Vintage</option>
+                  <option value="startup">Startup Bright</option>
+                  <option value="twotone">Elegant Two-Tone</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>
@@ -2167,8 +2186,14 @@
         </div>
 
         <div class="section">
-          <h2>Notes</h2><textarea id="notes">Installation and other charges, if applicable, will be discussed separately.
+          <h2>Notes</h2>
+          <label>Public Notes (Appears on Quotation / Invoice)</label>
+          <textarea id="notes">Installation and other charges, if applicable, will be discussed separately.
 Quotation is valid for the period mentioned above.</textarea>
+          <div style="margin-top:10px;">
+            <label style="color:#b42318;display:flex;align-items:center;gap:4px;">🔒 Internal Note <span style="font-weight:normal;font-size:10px;color:#667085;">(Admin Only — Never Printed or Displayed on Quote)</span></label>
+            <textarea id="internalNote" placeholder="Enter internal administrative notes, supplier costs, or internal reference numbers..."></textarea>
+          </div>
         </div>
 
         <div class="section">
@@ -2205,6 +2230,15 @@ Quotation is valid for the period mentioned above.</textarea>
           <div id="quoteSearchResults" style="margin-top:10px"></div>
           <div class="hint">Invoice/Quotation number, Client Name ya Mobile se search karein. Result select karte hi
             document load hoga.</div>
+        </div>
+      </div>
+
+      <div id="questionMakerTab" class="tabpage">
+        <div class="section">
+          <h2>Question Maker (3-Company Compare)</h2>
+          <div class="hint" style="margin-bottom:10px">Build &amp; compare 3 company quotations side-by-side using live Google Sheets data.</div>
+          <a href="question_maker.html" target="_blank" class="btn btn-primary" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px">Open Question Maker Full Workspace ↗</a>
+          <iframe src="question_maker.html" style="width:100%;height:720px;border:1px solid #eaecf0;border-radius:10px;background:#fff"></iframe>
         </div>
       </div>
 
@@ -2320,7 +2354,7 @@ Quotation is valid for the period mentioned above.</textarea>
 
   <script>
     const $ = id => document.getElementById(id);
-    const fields = ['company', 'phone', 'email', 'address', 'gst', 'currency', 'client', 'clientMobile', 'quoteNo', 'date', 'validity', 'tax', 'profit', 'mode', 'simpleMode', 'notes', 'quoteColor'];
+    const fields = ['company', 'phone', 'email', 'address', 'gst', 'currency', 'client', 'clientMobile', 'quoteNo', 'date', 'validity', 'tax', 'profit', 'mode', 'simpleMode', 'notes', 'internalNote', 'quoteColor'];
     const defaults = [['4 channel DVR', 1, 2400, ''], ['2MP Camera Dome', 4, 750, ''], ['SMPS', 1, 350, ''], ['Wire Bundle', 1, 1000, ''], ['BNC, DC, PVC Box', 1, 360, ''], ['500 GB HDD', 1, 1750, '']];
     let logoData = localStorage.getItem('quotationLogo') || '';
     let currentDocType = 'invoice';
@@ -2338,15 +2372,15 @@ Quotation is valid for the period mentioned above.</textarea>
       setTimeout(() => toast.remove(), dur);
     }
 
-    // ─── Template Selection ───
+    // ─── Template Selection & Company Mapping ───
     const TEMPLATES = [
       ['corporate', 'Corporate'],
       ['govt', 'Government'],
       ['modern', 'Modern Minimal'],
       ['navy', 'Elegant Navy'],
       ['classic', 'Classic Serif'],
-      ['accent', 'Bold Accent'],
-      ['sidebar', 'Stripe Sidebar'],
+      ['accent', 'Accent Gold'],
+      ['sidebar', 'Sidebar Accent'],
       ['gradient', 'Soft Gradient'],
       ['executive', 'Executive Dark'],
       ['project', 'Project Minimal'],
@@ -2354,16 +2388,36 @@ Quotation is valid for the period mentioned above.</textarea>
       ['startup', 'Startup Bright'],
       ['twotone', 'Elegant Two-Tone']
     ];
-    function selectTemplate(tpl) {
+
+    function selectTemplate(tpl, silent = false) {
       selectedTemplate = tpl;
       localStorage.setItem('quotationTemplate', tpl);
+      if ($('companyTemplateSelect')) $('companyTemplateSelect').value = tpl;
       TEMPLATES.forEach(pair => {
         const el = $('tpl' + (pair[0][0].toUpperCase() + pair[0].slice(1)));
         if (el) el.classList.toggle('active', pair[0] === tpl);
       });
       applyTemplate();
-      showToast('Template: ' + templateName(tpl));
+      if (!silent) showToast('Template: ' + templateName(tpl));
       render();
+    }
+
+    function checkCompanyTemplateOnNameChange() {
+      const companyName = ($('company').value || '').trim();
+      if (!companyName) return;
+      const savedTpl = localStorage.getItem('companyTemplate_' + companyName);
+      if (savedTpl) {
+        selectTemplate(savedTpl, true);
+      }
+    }
+
+    function onCompanyTemplateSelectChange() {
+      const tpl = $('companyTemplateSelect').value;
+      const companyName = ($('company').value || '').trim();
+      selectTemplate(tpl);
+      if (companyName) {
+        localStorage.setItem('companyTemplate_' + companyName, tpl);
+      }
     }
     function templateName(tpl) {
       const found = TEMPLATES.find(p => p[0] === tpl);
@@ -2648,14 +2702,16 @@ Quotation is valid for the period mentioned above.</textarea>
         mode: $('mode').value,
         simpleMode: $('simpleMode').value,
         notes: $('notes').value,
+        internalNote: $('internalNote') ? $('internalNote').value : '',
+        template: selectedTemplate,
         items: getItems()
       };
     }
 
     // ─── Save ───
     function saveLocal() {
-      const data = {}; fields.forEach(id => data[id] = $(id).value);
-      data.items = getItems(); data.docType = currentDocType;
+      const data = {}; fields.forEach(id => data[id] = $(id) ? $(id).value : '');
+      data.items = getItems(); data.docType = currentDocType; data.template = selectedTemplate;
       localStorage.setItem('quotationMakerData_' + currentDocType, JSON.stringify(data));
     }
 
@@ -2684,7 +2740,8 @@ Quotation is valid for the period mentioned above.</textarea>
         await api('saveCompany', {
           company: {
             name: $('company').value, phone: $('phone').value, email: $('email').value,
-            address: $('address').value, gst: $('gst').value, currency: $('currency').value
+            address: $('address').value, gst: $('gst').value, currency: $('currency').value,
+            template: $('companyTemplateSelect') ? $('companyTemplateSelect').value : selectedTemplate
           }
         });
         $('sheetTest').textContent = 'Company details saved to Sheet.';
@@ -2704,6 +2761,12 @@ Quotation is valid for the period mentioned above.</textarea>
           if (c.address) $('address').value = c.address;
           if (c.gst) $('gst').value = c.gst;
           if (c.currency) $('currency').value = c.currency;
+          if (c.template) {
+            selectTemplate(c.template, true);
+            if (c.name) localStorage.setItem('companyTemplate_' + c.name, c.template);
+          } else if (c.name) {
+            checkCompanyTemplateOnNameChange();
+          }
         }
       } catch (e) { }
     }
@@ -2807,6 +2870,14 @@ Quotation is valid for the period mentioned above.</textarea>
     fetchNextNumber();
     document.body.classList.add('print-invoice');
     render();
+    if (window.location.hash) {
+      const h = window.location.hash.replace('#', '');
+      const targetId = (h === 'questionMaker' || h === 'questionMakerTab') ? 'questionMakerTab' : h;
+      if ($(targetId)) {
+        const btn = document.querySelector(`.tab[onclick*="'${targetId}'"]`) || $('tabQuestionMakerBtn');
+        if (btn) showTab(targetId, btn);
+      }
+    }
     // Highlight active template card
     TEMPLATES.forEach(pair => {
       const el = $('tpl' + (pair[0][0].toUpperCase() + pair[0].slice(1)));

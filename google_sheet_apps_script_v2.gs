@@ -32,7 +32,7 @@ function setup_() {
   let cd = SS.getSheetByName('CompanyDetails');
   if (!cd) {
     cd = SS.insertSheet('CompanyDetails');
-    cd.appendRow(['CompanyName','Phone','Email','Address','GSTIN','Currency','UpdatedAt']);
+    cd.appendRow(['CompanyName','Phone','Email','Address','GSTIN','Currency','Template','UpdatedAt']);
   }
 
   // Invoices sheet
@@ -41,7 +41,7 @@ function setup_() {
     inv = SS.insertSheet('Invoices');
     inv.appendRow([
       'DocNo','Date','Company','Phone','Email','Address','GSTIN','Client','ClientMobile',
-      'Validity','Tax','DefaultProfit','Mode','SimpleMode','Notes','Total','ItemsJSON','UpdatedAt'
+      'Validity','Tax','DefaultProfit','Mode','SimpleMode','Notes','InternalNote','Total','ItemsJSON','UpdatedAt'
     ]);
   }
 
@@ -51,7 +51,7 @@ function setup_() {
     qt = SS.insertSheet('Quotations');
     qt.appendRow([
       'DocNo','Date','Company','Phone','Email','Address','GSTIN','Client','ClientMobile',
-      'Validity','Tax','DefaultProfit','Mode','SimpleMode','Notes','Total','ItemsJSON','UpdatedAt'
+      'Validity','Tax','DefaultProfit','Mode','SimpleMode','Notes','InternalNote','Total','ItemsJSON','UpdatedAt'
     ]);
   }
 
@@ -90,8 +90,12 @@ function doPost(e) {
         return json_(fetchDocuments_(data.docNo||'', data.name||'', data.mobile||'', data.docType||''));
       case 'getCompany':
         return json_(getCompany_());
+      case 'getCompanies':
+        return json_(getCompanies_());
       case 'saveCompany':
         return json_(saveCompany_(data.company));
+      case 'getClients':
+        return json_(getClients_());
       case 'getNextNumber':
         return json_(getNextNumber_(data.docType||'quotation'));
       default:
@@ -107,18 +111,63 @@ function doPost(e) {
 function getCompany_() {
   const sh = SS.getSheetByName('CompanyDetails');
   if (sh.getLastRow() < 2) return {ok:true,company:null};
-  const r = sh.getRange(2,1,1,7).getValues()[0];
+  const r = sh.getRange(2,1,1,8).getValues()[0];
   return {ok:true,company:{
     name:String(r[0]||''), phone:String(r[1]||''), email:String(r[2]||''),
-    address:String(r[3]||''), gst:String(r[4]||''), currency:String(r[5]||'₹')
+    address:String(r[3]||''), gst:String(r[4]||''), currency:String(r[5]||'₹'),
+    template:String(r[6]||'corporate')
   }};
+}
+
+function getCompanies_() {
+  const sh = SS.getSheetByName('CompanyDetails');
+  if (!sh || sh.getLastRow() < 2) return {ok:true, companies:[]};
+  const rows = sh.getRange(2, 1, sh.getLastRow() - 1, 8).getValues();
+  const companies = rows
+    .filter(r => String(r[0]).trim() !== '')
+    .map(r => ({
+      name: String(r[0]||''), phone: String(r[1]||''), email: String(r[2]||''),
+      address: String(r[3]||''), gst: String(r[4]||''), currency: String(r[5]||'₹'),
+      template: String(r[6]||'corporate')
+    }));
+  return {ok:true, companies: companies};
+}
+
+function getClients_() {
+  const clientsMap = {};
+  ['Invoices', 'Quotations'].forEach(sheetName => {
+    const sh = SS.getSheetByName(sheetName);
+    if (sh && sh.getLastRow() >= 2) {
+      const rows = sh.getRange(2, 1, sh.getLastRow() - 1, 18).getValues();
+      rows.forEach(r => {
+        const clientName = String(r[7] || '').trim();
+        const clientMobile = String(r[8] || '').trim();
+        if (clientName) {
+          const key = clientName.toLowerCase();
+          if (!clientsMap[key]) {
+            clientsMap[key] = {
+              name: clientName,
+              mobile: clientMobile,
+              lastDate: String(r[1] || ''),
+              company: String(r[2] || ''),
+              totalDocs: 1
+            };
+          } else {
+            clientsMap[key].totalDocs += 1;
+            if (clientMobile && !clientsMap[key].mobile) clientsMap[key].mobile = clientMobile;
+          }
+        }
+      });
+    }
+  });
+  return { ok: true, clients: Object.values(clientsMap) };
 }
 
 function saveCompany_(c) {
   const sh = SS.getSheetByName('CompanyDetails');
-  const row = [c.name||'',c.phone||'',c.email||'',c.address||'',c.gst||'',c.currency||'₹',new Date()];
+  const row = [c.name||'',c.phone||'',c.email||'',c.address||'',c.gst||'',c.currency||'₹',c.template||'corporate',new Date()];
   if (sh.getLastRow() < 2) sh.appendRow(row);
-  else sh.getRange(2,1,1,7).setValues([row]);
+  else sh.getRange(2,1,1,8).setValues([row]);
   return {ok:true,message:'Company details saved'};
 }
 
