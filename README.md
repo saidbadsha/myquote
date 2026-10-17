@@ -49,6 +49,12 @@ A professional invoicing and quotation system with Google Sheets sync, auto-numb
 2. Sign in at `admin.html` with `admin@email.com`.
 3. Optional: set Script Property `ADMIN_COMPANIES` to `Company A|Company B` to limit the admin to those companies (default `*` = all).
 
+### Companies & 3-company comparison
+
+- **Admin → Companies → Add Company** stores name, phone, email, address, optional GST, currency, template and numbering formats in the `CompanyDetails` sheet. Those companies feed the Create-tab switcher and the Question Maker workspace.
+- **Question Maker** saves all 3 quotations in one step (one number per company, linked by a `ComparisonId`), can reload a comparison by any of its quotation numbers, and its PDF/Print buttons save first and then open the real document, so the company's own template, details, currency and number are used.
+- After updating `.gs`, redeploy as a **new version** so the added columns (`ComparisonId`, `Currency`) are created.
+
 ### Company-wise numbering
 
 **Settings → Document Numbering** sets invoice/quotation formats per company, e.g. `ACM/{YY}{MM}/{SEQ:4}`. Default stays `INV-{YYYY}-{SEQ:3}` / `QT-{YYYY}-{SEQ:3}`. Existing numbers are never changed; the server assigns the final number on save under a lock.

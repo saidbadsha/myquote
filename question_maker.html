@@ -518,6 +518,17 @@
       margin-bottom: 20px;
     }
 
+    .admin-only { display: none }
+    body.is-admin .admin-only { display: block }
+    .card-docno { font-size: 12px; font-weight: 700; color: #0369a1; margin-top: 4px; min-height: 16px }
+    .save-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px }
+    .save-bar input { max-width: 220px }
+    .btn-savecmp { background: #059669; color: #fff; border: 0; border-radius: 8px; padding: 10px 18px; font-weight: 700; cursor: pointer }
+    .btn-savecmp:disabled { opacity: .6; cursor: default }
+    .btn-loadcmp { background: #fff; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 8px; padding: 9px 14px; font-weight: 600; cursor: pointer }
+    .toast-msg { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #0f172a; color: #fff; padding: 10px 16px; border-radius: 10px; z-index: 10000; font-size: 13px; max-width: 90vw }
+    .toast-msg.err { background: #b42318 }
+    select:disabled.select-field { background: #f8fafc; color: #475467; cursor: not-allowed }
     @media print {
       body * {
         visibility: hidden;
@@ -552,7 +563,8 @@
       </div>
     </div>
     <div class="header-actions">
-      <span class="badge-status" id="sheetStatusText">• Local only</span>
+      <span class="badge-status" id="sheetStatusText">• Connecting…</span>
+      <a id="adminPill" href="admin.html" style="font-size:12px;font-weight:600;color:#0369a1;text-decoration:none">Admin login</a>
       <button class="btn-sync" onclick="syncWithGoogleSheets()">Sync Now</button>
       <button class="btn-backup" onclick="exportBackupData()">Backup</button>
     </div>
@@ -585,10 +597,10 @@
         <div class="field-group">
           <label>Company 1</label>
           <select id="company1Select" class="select-field" onchange="onCompanyChange(1)">
-            <option value="crypto">crypto</option>
+            <option value="">Loading companies…</option>
           </select>
-          <label style="margin-top:6px;font-size:10px;">Select Template</label>
-          <select id="company1TemplateSelect" class="select-field" onchange="onTemplateChange(1)">
+          <label style="margin-top:6px;font-size:10px;">Template (from company settings)</label>
+          <select id="company1TemplateSelect" class="select-field" disabled title="Template comes from the company settings (Admin → Companies)">
             <option value="corporate">Corporate</option>
             <option value="govt">Government Formal</option>
             <option value="modern">Modern Minimal</option>
@@ -608,10 +620,10 @@
         <div class="field-group">
           <label>Company 2</label>
           <select id="company2Select" class="select-field" onchange="onCompanyChange(2)">
-            <option value="crypto">crypto</option>
+            <option value="">Loading companies…</option>
           </select>
-          <label style="margin-top:6px;font-size:10px;">Select Template</label>
-          <select id="company2TemplateSelect" class="select-field" onchange="onTemplateChange(2)">
+          <label style="margin-top:6px;font-size:10px;">Template (from company settings)</label>
+          <select id="company2TemplateSelect" class="select-field" disabled title="Template comes from the company settings (Admin → Companies)">
             <option value="corporate">Corporate</option>
             <option value="govt">Government Formal</option>
             <option value="modern">Modern Minimal</option>
@@ -631,10 +643,10 @@
         <div class="field-group">
           <label>Company 3</label>
           <select id="company3Select" class="select-field" onchange="onCompanyChange(3)">
-            <option value="crypto">crypto</option>
+            <option value="">Loading companies…</option>
           </select>
-          <label style="margin-top:6px;font-size:10px;">Select Template</label>
-          <select id="company3TemplateSelect" class="select-field" onchange="onTemplateChange(3)">
+          <label style="margin-top:6px;font-size:10px;">Template (from company settings)</label>
+          <select id="company3TemplateSelect" class="select-field" disabled title="Template comes from the company settings (Admin → Companies)">
             <option value="corporate">Corporate</option>
             <option value="govt">Government Formal</option>
             <option value="modern">Modern Minimal</option>
@@ -656,7 +668,7 @@
       <div class="form-grid-3">
         <div class="field-group">
           <label>Client</label>
-          <input type="text" id="clientInput" class="input-field" value="acbd" placeholder="Client Name">
+          <input type="text" id="clientInput" class="input-field" value="" placeholder="Client Name">
         </div>
         <div class="field-group">
           <label>Date</label>
@@ -672,9 +684,9 @@
       <div class="form-grid-3" style="margin-bottom: 0;">
         <div class="field-group">
           <label>Tax %</label>
-          <input type="number" id="taxInput" class="input-field" value="1" min="0" step="0.01" oninput="calculateTotals()">
+          <input type="number" id="taxInput" class="input-field" value="0" min="0" step="0.01" oninput="calculateTotals()">
         </div>
-        <div class="field-group" style="grid-column: span 2;">
+        <div class="field-group admin-only" style="grid-column: span 2;">
           <label style="color:#b42318;display:flex;align-items:center;gap:4px;">🔒 Internal Note <span style="font-weight:normal;font-size:10px;color:#64748b;">(Admin Only — Omitted from PDF/Print)</span></label>
           <input type="text" id="internalNoteInput" class="input-field" placeholder="Administrative reference, internal costs, supplier notes...">
         </div>
@@ -709,6 +721,12 @@
           </tbody>
         </table>
       </div>
+      <div class="save-bar">
+        <button class="btn-savecmp" id="saveAllBtn" onclick="saveAll()">Save all 3 quotations</button>
+        <span style="flex:1"></span>
+        <input type="text" id="loadNoInput" class="input-field" placeholder="Quotation no. to load">
+        <button class="btn-loadcmp" onclick="loadComparison()">Load saved comparison</button>
+      </div>
     </section>
 
     <!-- Comparison Summary Cards Section -->
@@ -717,8 +735,9 @@
       <div class="company-summary-card">
         <div>
           <div class="card-company-tag">COMPANY 1</div>
-          <div class="card-company-name" id="cardCompany1Name">crypto</div>
-          <div class="card-template-tag" id="cardCompany1Template">Template: Government Formal</div>
+          <div class="card-company-name" id="cardCompany1Name">—</div>
+          <div class="card-template-tag" id="cardCompany1Template">Template: —</div>
+          <div class="card-docno" id="cardCompany1DocNo"></div>
           <div class="card-price-display" id="cardCompany1Total">₹ 0.00</div>
           <div class="card-detail-info" id="cardCompany1Details">0 products · Tax 1.00%</div>
         </div>
@@ -732,8 +751,9 @@
       <div class="company-summary-card">
         <div>
           <div class="card-company-tag">COMPANY 2</div>
-          <div class="card-company-name" id="cardCompany2Name">crypto</div>
-          <div class="card-template-tag" id="cardCompany2Template">Template: Government Formal</div>
+          <div class="card-company-name" id="cardCompany2Name">—</div>
+          <div class="card-template-tag" id="cardCompany2Template">Template: —</div>
+          <div class="card-docno" id="cardCompany2DocNo"></div>
           <div class="card-price-display" id="cardCompany2Total">₹ 0.00</div>
           <div class="card-detail-info" id="cardCompany2Details">0 products · Tax 1.00%</div>
         </div>
@@ -747,8 +767,9 @@
       <div class="company-summary-card">
         <div>
           <div class="card-company-tag">COMPANY 3</div>
-          <div class="card-company-name" id="cardCompany3Name">crypto</div>
-          <div class="card-template-tag" id="cardCompany3Template">Template: Government Formal</div>
+          <div class="card-company-name" id="cardCompany3Name">—</div>
+          <div class="card-template-tag" id="cardCompany3Template">Template: —</div>
+          <div class="card-docno" id="cardCompany3DocNo"></div>
           <div class="card-price-display" id="cardCompany3Total">₹ 0.00</div>
           <div class="card-detail-info" id="cardCompany3Details">0 products · Tax 1.00%</div>
         </div>
@@ -764,17 +785,6 @@
   <!-- Datalist for Product Auto-complete -->
   <datalist id="catalogList"></datalist>
 
-  <!-- Print / PDF Modal -->
-  <div id="printModal">
-    <div id="printModalContent">
-      <div class="modal-actions">
-        <button class="btn-print" onclick="window.print()">Print / Save PDF</button>
-        <button class="btn-backup" onclick="closePrintModal()">Close</button>
-      </div>
-      <div id="printableDocument"></div>
-    </div>
-  </div>
-
   <!-- Live Data Viewer Modal (Companies, Products, Clients from Sheets) -->
   <div id="dataViewerModal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:9999;overflow-y:auto;padding:30px 16px;">
     <div style="background:#fff;max-width:860px;margin:0 auto;border-radius:12px;padding:24px;box-shadow:0 10px 40px rgba(0,0,0,0.2);">
@@ -789,587 +799,354 @@
   <!-- Application Logic -->
   <script>
     const TEMPLATE_NAMES = {
-      corporate: 'Corporate',
-      govt: 'Government Formal',
-      modern: 'Modern Minimal',
-      navy: 'Elegant Navy',
-      classic: 'Classic Serif',
-      accent: 'Accent Gold',
-      sidebar: 'Sidebar Accent',
-      gradient: 'Soft Gradient',
-      executive: 'Executive Dark',
-      project: 'Project Minimal',
-      vintage: 'Vintage',
-      startup: 'Startup Bright',
-      twotone: 'Elegant Two-Tone'
+      corporate: 'Corporate', govt: 'Government Formal', modern: 'Modern Minimal', navy: 'Elegant Navy',
+      classic: 'Classic Serif', accent: 'Accent Gold', sidebar: 'Sidebar Accent', gradient: 'Soft Gradient',
+      executive: 'Executive Dark', project: 'Project Minimal', vintage: 'Vintage', startup: 'Startup Bright', twotone: 'Elegant Two-Tone'
     };
+    // Same Apps Script URL as index.html (shared through localStorage 'sheetUrl'; not a secret).
+    const DEFAULT_API = 'https://script.google.com/macros/s/AKfycbxu4GoFsE9Mwb3pHzP37UHIV8GbKfA2EvQBh3F0KBF4-z7c4yDUlamsm4MSfdjTmQfc/exec';
+    const ADMIN_TOKEN_KEY = 'qm_admin_token';
+    const $ = id => document.getElementById(id);
+    const lsGet = k => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } };
+    const sheetUrl = () => lsGet('sheetUrl') || lsGet('qm_api_url') || DEFAULT_API;
+    const round2 = n => Math.round((Number(n) || 0) * 100) / 100;
 
-    // State variables
     let companiesList = [];
     let productCatalog = [];
-    let currentSheetUrl = localStorage.getItem('sheetUrl') || '';
+    let online = false;
+    // Saved state of the current comparison. Reset whenever a company changes so a new set is created.
+    let saved = { comparisonId: '', docNos: ['', '', ''], mobile: '', notes: '' };
 
-    // Initialize page
+    // ─── API ───
+    async function callSheetApi(action, payload = {}) {
+      const body = { action, ...payload };
+      const tk = lsGet(ADMIN_TOKEN_KEY); if (tk) body.token = tk;
+      const res = await fetch(sheetUrl(), { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
+      let json; try { json = JSON.parse(await res.text()); } catch (e) { throw new Error('Invalid response from Google Apps Script.'); }
+      if (!json.ok) throw new Error(json.error || 'Request failed');
+      return json;
+    }
+    function toast(msg, isErr) {
+      const t = document.createElement('div'); t.className = 'toast-msg' + (isErr ? ' err' : ''); t.textContent = msg;
+      document.body.appendChild(t); setTimeout(() => t.remove(), isErr ? 5000 : 2800);
+    }
+    function setStatus(text) { $('sheetStatusText').textContent = text; }
+
+    // ─── Admin session (shared with index.html / admin.html) ───
+    async function initAdmin() {
+      if (!lsGet(ADMIN_TOKEN_KEY)) return;
+      try {
+        const j = await callSheetApi('adminMe');
+        document.body.classList.add('is-admin');
+        $('adminPill').textContent = 'Admin: ' + j.username;
+      } catch (e) { try { localStorage.removeItem(ADMIN_TOKEN_KEY); } catch (_) { } }
+    }
+
+    // ─── Init ───
     window.addEventListener('DOMContentLoaded', () => {
-      // Set default date
-      document.getElementById('dateInput').value = new Date().toISOString().slice(0, 10);
-      
-      // Load Companies & Products from Sheet / Cache
+      $('dateInput').value = new Date().toISOString().slice(0, 10);
+      initAdmin();
       fetchCompaniesData();
       fetchProductCatalog();
-
-      // Original application items and rates initialization
       addProductRow('4 channel DVR', 1, 2400, 2400, 2400);
       addProductRow('2MP Camera Dome', 4, 750, 750, 750);
       addProductRow('SMPS', 1, 350, 350, 350);
       addProductRow('Wire Bundle', 1, 1000, 1000, 1000);
       addProductRow('BNC, DC, PVC Box', 1, 360, 360, 360);
       addProductRow('500 GB HDD', 1, 1750, 1750, 1750);
-
       calculateTotals();
     });
 
-    // ─── API Helper ───
-    async function callSheetApi(action, payload = {}) {
-      const url = currentSheetUrl || localStorage.getItem('sheetUrl');
-      if (!url) return null;
-      try {
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ action, ...payload })
-        });
-        const json = await res.json();
-        return json.ok ? json : null;
-      } catch (err) {
-        console.warn('Google Sheet API call failed:', err);
-        return null;
-      }
-    }
-
-    // ─── Fetch Companies ───
+    // ─── Companies (single source of truth: Google Sheet) ───
     async function fetchCompaniesData() {
-      let fetched = null;
-      if (currentSheetUrl) {
-        fetched = await callSheetApi('getCompanies');
+      try {
+        const res = await callSheetApi('getCompanies');
+        companiesList = res.companies || [];
+        online = true;
+        setStatus(companiesList.length ? '• Connected' : '• Connected — no companies yet');
+        if (!companiesList.length) toast('No companies in the Google Sheet yet. Add them in Admin → Companies.', true);
+      } catch (err) {
+        online = false; companiesList = [];
+        setStatus('• Offline'); toast('Could not load companies: ' + err.message, true);
       }
-
-      if (fetched && fetched.companies && fetched.companies.length > 0) {
-        companiesList = fetched.companies;
-      } else {
-        // Fallback/Default companies list
-        companiesList = [
-          { name: 'crypto', template: 'corporate' },
-          { name: 'Apex Solutions', template: 'govt' },
-          { name: 'Zenith Trading Co.', template: 'executive' }
-        ];
-      }
-
       populateCompanyDropdowns();
-      updateStatusBadge();
     }
+
+    function companyByName(name) { return companiesList.find(c => c.name.trim().toLowerCase() === String(name).trim().toLowerCase()); }
 
     function populateCompanyDropdowns() {
-      const selects = [
-        document.getElementById('company1Select'),
-        document.getElementById('company2Select'),
-        document.getElementById('company3Select')
-      ];
-
-      selects.forEach((select, idx) => {
-        select.innerHTML = '';
-        companiesList.forEach(comp => {
-          const opt = document.createElement('option');
-          opt.value = comp.name;
-          opt.textContent = comp.name;
-          select.appendChild(opt);
-        });
-        if (companiesList[idx]) {
-          select.selectedIndex = idx % companiesList.length;
-        }
+      [1, 2, 3].forEach(idx => {
+        const select = $(`company${idx}Select`);
+        const keep = select.value;
+        select.innerHTML = companiesList.length
+          ? companiesList.map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join('')
+          : '<option value="">— no companies —</option>';
+        if (keep && companyByName(keep)) select.value = keep;
+        else if (companiesList.length) select.selectedIndex = (idx - 1) % companiesList.length;   // spread defaults 1,2,3
       });
-
-      [1, 2, 3].forEach(idx => onCompanyChange(idx));
+      [1, 2, 3].forEach(idx => onCompanyChange(idx, true));
+      calculateTotals();
     }
 
-    function onCompanyChange(companyIdx) {
-      const companyName = document.getElementById(`company${companyIdx}Select`).value;
-      document.getElementById(`cardCompany${companyIdx}Name`).textContent = companyName;
-
-      // Auto-load template assigned to this company
-      const savedTemplate = localStorage.getItem('companyTemplate_' + companyName);
-      const companyObj = companiesList.find(c => c.name === companyName);
-      const activeTemplate = savedTemplate || (companyObj ? companyObj.template : 'corporate') || 'corporate';
-
-      document.getElementById(`company${companyIdx}TemplateSelect`).value = activeTemplate;
-      document.getElementById(`cardCompany${companyIdx}Template`).textContent = 'Template: ' + (TEMPLATE_NAMES[activeTemplate] || 'Corporate');
+    function onCompanyChange(idx, keepSaved) {
+      if (!keepSaved) { saved = { comparisonId: '', docNos: ['', '', ''], mobile: '', notes: '' }; [1, 2, 3].forEach(showDocNo); }
+      const name = $(`company${idx}Select`).value;
+      const c = companyByName(name);
+      $(`cardCompany${idx}Name`).textContent = name || '—';
+      const tpl = (c && c.template) || 'corporate';
+      $(`company${idx}TemplateSelect`).value = tpl;
+      $(`cardCompany${idx}Template`).textContent = 'Template: ' + (TEMPLATE_NAMES[tpl] || 'Corporate') + (c ? ' · ' + (c.currency || '₹') : '');
+      calculateTotals();
+      warnDuplicates();
     }
 
-    function onTemplateChange(companyIdx) {
-      const companyName = document.getElementById(`company${companyIdx}Select`).value;
-      const selectedTpl = document.getElementById(`company${companyIdx}TemplateSelect`).value;
-      document.getElementById(`cardCompany${companyIdx}Template`).textContent = 'Template: ' + (TEMPLATE_NAMES[selectedTpl] || 'Corporate');
-
-      if (companyName) {
-        localStorage.setItem('companyTemplate_' + companyName, selectedTpl);
-      }
+    function warnDuplicates() {
+      const names = [1, 2, 3].map(i => $(`company${i}Select`).value.trim().toLowerCase());
+      const dup = names.some((n, i) => n && names.indexOf(n) !== i);
+      $('saveAllBtn').title = dup ? 'Each column must use a different company' : '';
+      $('saveAllBtn').style.outline = dup ? '2px solid #b42318' : '';
     }
 
-    // ─── Fetch Products ───
+    function showDocNo(idx) {
+      $(`cardCompany${idx}DocNo`).textContent = saved.docNos[idx - 1] ? 'No: ' + saved.docNos[idx - 1] : '';
+    }
+
+    // ─── Products ───
     async function fetchProductCatalog() {
-      let fetched = null;
-      if (currentSheetUrl) {
-        fetched = await callSheetApi('getItems');
-      }
-
-      if (fetched && fetched.items && fetched.items.length > 0) {
-        productCatalog = fetched.items;
-      } else {
-        // Original application items & rates fallback
-        productCatalog = [
-          { name: '4 channel DVR', lastRate: 2400, cost: 2400 },
-          { name: '2MP Camera Dome', lastRate: 750, cost: 750 },
-          { name: 'SMPS', lastRate: 350, cost: 350 },
-          { name: 'Wire Bundle', lastRate: 1000, cost: 1000 },
-          { name: 'BNC, DC, PVC Box', lastRate: 360, cost: 360 },
-          { name: '500 GB HDD', lastRate: 1750, cost: 1750 }
-        ];
-      }
-
-      const datalist = document.getElementById('catalogList');
-      datalist.innerHTML = productCatalog.map(item => `<option value="${escapeHtml(item.name)}">`).join('');
+      try { productCatalog = (await callSheetApi('getItems')).items || []; }
+      catch (e) { productCatalog = []; }
+      $('catalogList').innerHTML = productCatalog.map(item => `<option value="${escapeHtml(item.name)}">`).join('');
     }
 
-    // ─── Product Table Row Management ───
     function addProductRow(name = '', qty = 1, r1 = 0, r2 = 0, r3 = 0) {
-      const tbody = document.getElementById('productTableBody');
       const tr = document.createElement('tr');
-
       tr.innerHTML = `
         <td><input type="text" class="prod-name" list="catalogList" value="${escapeHtml(name)}" placeholder="Select or type product" oninput="onProductInput(this)"></td>
         <td><input type="number" class="prod-qty" min="1" step="1" value="${qty}" oninput="calculateTotals()"></td>
         <td><input type="number" class="prod-r1" min="0" step="0.01" value="${r1}" oninput="calculateTotals()"></td>
         <td><input type="number" class="prod-r2" min="0" step="0.01" value="${r2}" oninput="calculateTotals()"></td>
         <td><input type="number" class="prod-r3" min="0" step="0.01" value="${r3}" oninput="calculateTotals()"></td>
-        <td><button class="btn-del-row" onclick="removeProductRow(this)">×</button></td>
-      `;
-
-      tbody.appendChild(tr);
+        <td><button class="btn-del-row" onclick="removeProductRow(this)">×</button></td>`;
+      $('productTableBody').appendChild(tr);
       calculateTotals();
     }
-
-    function removeProductRow(btn) {
-      btn.closest('tr').remove();
-      calculateTotals();
-    }
+    function removeProductRow(btn) { btn.closest('tr').remove(); calculateTotals(); }
 
     function onProductInput(inputEl) {
       const val = inputEl.value.trim().toLowerCase();
       const tr = inputEl.closest('tr');
       const found = productCatalog.find(p => p.name.toLowerCase() === val);
       if (found) {
+        // The catalog stores the Company 1 (base) rate; Companies 2 & 3 follow it until varied.
         const rate = found.lastRate || found.cost || 0;
         tr.querySelector('.prod-r1').value = rate;
+        tr.querySelector('.prod-r2').value = rate;
+        tr.querySelector('.prod-r3').value = rate;
         calculateTotals();
       }
     }
 
-    // ─── Toolbar Action Functions ───
     function copyCompany1RatesToAll() {
-      const rows = document.querySelectorAll('#productTableBody tr');
-      rows.forEach(tr => {
+      document.querySelectorAll('#productTableBody tr').forEach(tr => {
         const r1 = parseFloat(tr.querySelector('.prod-r1').value) || 0;
-        tr.querySelector('.prod-r2').value = r1;
-        tr.querySelector('.prod-r3').value = r1;
+        tr.querySelector('.prod-r2').value = r1; tr.querySelector('.prod-r3').value = r1;
       });
       calculateTotals();
     }
 
     function generateRandomVariations() {
-      const rows = document.querySelectorAll('#productTableBody tr');
-      rows.forEach(tr => {
+      document.querySelectorAll('#productTableBody tr').forEach(tr => {
         const r1 = parseFloat(tr.querySelector('.prod-r1').value) || 0;
-        const rand2 = Math.floor(Math.random() * 100) + 1;
-        const rand3 = Math.floor(Math.random() * 100) + 1;
-        tr.querySelector('.prod-r2').value = (r1 + rand2).toFixed(2);
-        tr.querySelector('.prod-r3').value = (r1 + rand3).toFixed(2);
+        tr.querySelector('.prod-r2').value = (r1 + Math.floor(Math.random() * 100) + 1).toFixed(2);
+        tr.querySelector('.prod-r3').value = (r1 + Math.floor(Math.random() * 100) + 1).toFixed(2);
       });
       calculateTotals();
     }
 
-    // ─── Realtime Calculations ───
-    function calculateTotals() {
-      const rows = document.querySelectorAll('#productTableBody tr');
-      const taxP = parseFloat(document.getElementById('taxInput').value) || 0;
+    // ─── Calculations (identical to the backend: rounded line amounts, total rounded to 2dp) ───
+    function companyCurrency(idx) { const c = companyByName($(`company${idx}Select`).value); return (c && c.currency) || '₹'; }
 
-      let sub1 = 0, sub2 = 0, sub3 = 0;
-      let itemCount = rows.length;
-
-      rows.forEach(tr => {
+    function computeTotals(idx) {
+      const taxP = parseFloat($('taxInput').value) || 0;
+      let subtotal = 0;
+      document.querySelectorAll('#productTableBody tr').forEach(tr => {
         const qty = parseFloat(tr.querySelector('.prod-qty').value) || 0;
-        const r1 = parseFloat(tr.querySelector('.prod-r1').value) || 0;
-        const r2 = parseFloat(tr.querySelector('.prod-r2').value) || 0;
-        const r3 = parseFloat(tr.querySelector('.prod-r3').value) || 0;
-
-        sub1 += qty * r1;
-        sub2 += qty * r2;
-        sub3 += qty * r3;
+        const rate = parseFloat(tr.querySelector(`.prod-r${idx}`).value) || 0;
+        subtotal += round2(qty * rate);
       });
-
-      const total1 = sub1 * (1 + taxP / 100);
-      const total2 = sub2 * (1 + taxP / 100);
-      const total3 = sub3 * (1 + taxP / 100);
-
-      document.getElementById('cardCompany1Total').textContent = formatCurrency(total1);
-      document.getElementById('cardCompany2Total').textContent = formatCurrency(total2);
-      document.getElementById('cardCompany3Total').textContent = formatCurrency(total3);
-
-      const taxText = `Tax ${taxP.toFixed(2)}%`;
-      document.getElementById('cardCompany1Details').textContent = `${itemCount} products · ${taxText}`;
-      document.getElementById('cardCompany2Details').textContent = `${itemCount} products · ${taxText}`;
-      document.getElementById('cardCompany3Details').textContent = `${itemCount} products · ${taxText}`;
+      subtotal = round2(subtotal);
+      return { subtotal, taxP, taxAmount: round2(subtotal * taxP / 100), grandTotal: round2(subtotal * (1 + taxP / 100)) };
     }
 
-    function formatCurrency(val) {
-      return '₹ ' + val.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    function calculateTotals() {
+      const count = document.querySelectorAll('#productTableBody tr').length;
+      [1, 2, 3].forEach(i => {
+        const t = computeTotals(i);
+        $(`cardCompany${i}Total`).textContent = formatCurrency(t.grandTotal, companyCurrency(i));
+        $(`cardCompany${i}Details`).textContent = `${count} products · Tax ${t.taxP.toFixed(2)}%`;
+      });
     }
 
+    function formatCurrency(val, cur) {
+      return (cur || '₹') + ' ' + val.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
     function escapeHtml(str) {
-      return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
-    // ─── Sync & Status ───
+    // ─── Save / load ───
+    function buildQuote(idx) {
+      const c = companyByName($(`company${idx}Select`).value) || {};
+      const items = [];
+      document.querySelectorAll('#productTableBody tr').forEach(tr => {
+        const name = tr.querySelector('.prod-name').value.trim();
+        if (!name) return;
+        const q = parseFloat(tr.querySelector('.prod-qty').value) || 0;
+        const rate = parseFloat(tr.querySelector(`.prod-r${idx}`).value) || 0;
+        const cat = productCatalog.find(p => p.name.toLowerCase() === name.toLowerCase());
+        const cost = cat ? Number(cat.cost) || 0 : 0;
+        items.push({ name, q, c: cost, p: cost ? (rate - cost) / cost * 100 : 0, rate, amount: round2(q * rate) });
+      });
+      return {
+        company: c.name || '', phone: c.phone || '', email: c.email || '', address: c.address || '', gst: c.gst || '',
+        currency: c.currency || '₹', docNo: saved.docNos[idx - 1], isNew: !saved.docNos[idx - 1], items
+      };
+    }
+
+    function validateForm() {
+      if ([1, 2, 3].some(i => !companyByName($(`company${i}Select`).value))) return 'Select a saved company in every column.';
+      const names = [1, 2, 3].map(i => $(`company${i}Select`).value.trim().toLowerCase());
+      if (new Set(names).size !== 3) return 'Each column must use a different company.';
+      if (!$('clientInput').value.trim()) return 'Enter the client name.';
+      if (!buildQuote(1).items.length) return 'Add at least one product.';
+      return '';
+    }
+
+    let saving = null;
+    async function saveAll(quiet) {
+      if (saving) return saving;
+      const err = validateForm();
+      if (err) { toast(err, true); return false; }
+      const btn = $('saveAllBtn'); btn.disabled = true; btn.textContent = 'Saving…';
+      saving = (async () => {
+        try {
+          const j = await callSheetApi('saveComparison', {
+            comparisonId: saved.comparisonId,
+            common: {
+              client: $('clientInput').value.trim(), clientMobile: saved.mobile, date: $('dateInput').value, validity: $('validityInput').value,
+              tax: parseFloat($('taxInput').value) || 0, profit: 0, mode: 'markup', simpleMode: 'false',
+              notes: saved.notes || 'Installation and other charges, if applicable, will be discussed separately.\nQuotation is valid for the period mentioned above.',
+              internalNote: document.body.classList.contains('is-admin') ? $('internalNoteInput').value : null
+            },
+            quotes: [1, 2, 3].map(buildQuote)
+          });
+          saved.comparisonId = j.comparisonId;
+          j.results.forEach((r, i) => { saved.docNos[i] = r.docNo; showDocNo(i + 1); });
+          if (!quiet) toast('Saved 3 quotations: ' + j.results.map(r => r.docNo).join(' · '));
+          return true;
+        } catch (e) { toast('Save failed: ' + e.message, true); return false; }
+        finally { btn.disabled = false; btn.textContent = 'Save all 3 quotations'; saving = null; }
+      })();
+      return saving;
+    }
+
+    async function loadComparison() {
+      const no = $('loadNoInput').value.trim();
+      if (!no) { toast('Enter a quotation number from the comparison.', true); return; }
+      try {
+        const j = await callSheetApi('getComparison', { docNo: no });
+        const qs = j.quotes.slice(0, 3);
+        if (qs.length < 2) throw new Error('Comparison has too few quotations.');
+        // Make sure each saved company is selectable even if it no longer exists in the list.
+        qs.forEach(q => { if (!companyByName(q.company)) companiesList.push({ name: q.company, template: 'corporate', currency: q.currency || '₹' }); });
+        populateCompanyDropdowns();
+        saved = { comparisonId: j.comparisonId, docNos: ['', '', ''], mobile: qs[0].clientMobile || '', notes: qs[0].notes || '' };
+        qs.forEach((q, i) => { $(`company${i + 1}Select`).value = q.company; saved.docNos[i] = q.docNo; onCompanyChange(i + 1, true); showDocNo(i + 1); });
+        const base = qs[0];
+        $('clientInput').value = base.client || ''; $('dateInput').value = base.date || '';
+        $('validityInput').value = base.validity || ''; $('taxInput').value = base.tax || 0;
+        $('internalNoteInput').value = base.internalNote || '';
+        $('productTableBody').innerHTML = '';
+        base.items.forEach((it, k) => addProductRow(it.name, it.q, it.rate,
+          qs[1] && qs[1].items[k] ? qs[1].items[k].rate : it.rate, qs[2] && qs[2].items[k] ? qs[2].items[k].rate : it.rate));
+        calculateTotals();
+        toast('Loaded comparison ' + j.comparisonId);
+      } catch (e) { toast(e.message, true); }
+    }
+
+    // ─── Print / PDF: save first, then open the real document (company template, details, currency, number) ───
+    async function printQuotation(idx) {
+      const win = window.open('', '_blank');           // opened synchronously so pop-up blockers allow it
+      const ok = await saveAll(true);
+      if (!ok) { if (win) win.close(); return; }
+      const url = 'index.html?print=1&type=quotation&no=' + encodeURIComponent(saved.docNos[idx - 1]);
+      if (win) win.location.href = url; else location.href = url;
+    }
+    function generatePDF(idx) { return printQuotation(idx); }
+
+    // ─── Sync & backup ───
     async function syncWithGoogleSheets() {
-      const statusEl = document.getElementById('sheetStatusText');
-      statusEl.textContent = '• Syncing...';
+      setStatus('• Syncing…');
       await fetchCompaniesData();
       await fetchProductCatalog();
-      statusEl.textContent = currentSheetUrl ? '• Connected' : '• Local only';
-    }
-
-    function updateStatusBadge() {
-      const statusEl = document.getElementById('sheetStatusText');
-      statusEl.textContent = currentSheetUrl ? '• Connected' : '• Local only';
     }
 
     function exportBackupData() {
       const data = {
-        companies: companiesList,
-        products: productCatalog,
-        client: document.getElementById('clientInput').value,
-        date: document.getElementById('dateInput').value,
-        tax: document.getElementById('taxInput').value,
-        internalNote: document.getElementById('internalNoteInput').value
+        companies: companiesList, products: productCatalog,
+        client: $('clientInput').value, date: $('dateInput').value, tax: $('taxInput').value, comparisonId: saved.comparisonId
       };
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      if (document.body.classList.contains('is-admin')) data.internalNote = $('internalNoteInput').value;
       const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'Question_Maker_Backup.json';
-      a.click();
+      a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+      a.download = 'Question_Maker_Backup.json'; a.click();
     }
 
-    // ─── PDF / Print Quotation Generator with Dynamic Template Support ───
-    function getQuotationDataForCompany(companyIdx) {
-      const companyName = document.getElementById(`company${companyIdx}Select`).value;
-      const template = document.getElementById(`company${companyIdx}TemplateSelect`).value;
-      const client = document.getElementById('clientInput').value || 'Client';
-      const date = document.getElementById('dateInput').value;
-      const validity = document.getElementById('validityInput').value;
-      const taxP = parseFloat(document.getElementById('taxInput').value) || 0;
-
-      const rows = document.querySelectorAll('#productTableBody tr');
-      const items = [];
-      let subtotal = 0;
-
-      rows.forEach(tr => {
-        const name = tr.querySelector('.prod-name').value || 'Item';
-        const qty = parseFloat(tr.querySelector('.prod-qty').value) || 0;
-        const rate = parseFloat(tr.querySelector(`.prod-r${companyIdx}`).value) || 0;
-        const amount = qty * rate;
-        subtotal += amount;
-        items.push({ name, qty, rate, amount });
-      });
-
-      const taxAmount = subtotal * (taxP / 100);
-      const grandTotal = subtotal + taxAmount;
-
-      // Note: Internal Note is strictly excluded from document payload returned for printing/PDF
-      return { companyName, template, client, date, validity, taxP, subtotal, taxAmount, grandTotal, items };
+    // ─── Data viewer modals (live from Google Sheet) ───
+    function closeDataViewerModal() { $('dataViewerModal').style.display = 'none'; }
+    function openViewer(title) {
+      $('dataViewerTitle').textContent = title;
+      $('dataViewerContent').innerHTML = '<div style="padding:20px;text-align:center;color:#64748b;">Fetching from Google Sheet…</div>';
+      $('dataViewerModal').style.display = 'block';
     }
-
-    function renderPrintableQuotation(data) {
-      const isGovt = data.template === 'govt';
-      const isModern = data.template === 'modern';
-      const isNavy = data.template === 'navy';
-      const isExecutive = data.template === 'executive';
-
-      let fontFamily = "'Inter', Arial, sans-serif";
-      let headerBorder = "3px solid #111827";
-      let tableHeaderBg = "#111827";
-      let tableHeaderColor = "#ffffff";
-      let stampHtml = "";
-
-      if (isGovt) {
-        fontFamily = "Georgia, 'Times New Roman', serif";
-        headerBorder = "3px double #111827";
-        stampHtml = `<div style="margin-top: 30px; border: 2px solid #111827; display: inline-block; padding: 8px 16px; font-size: 10px; font-family: Georgia, serif; text-transform: uppercase; letter-spacing: 1px;">✠ For Official Use Only</div>`;
-      } else if (isNavy) {
-        tableHeaderBg = "#1e3a5f";
-        headerBorder = "4px solid #c9a227";
-      } else if (isExecutive) {
-        tableHeaderBg = "#0f172a";
-        headerBorder = "3px solid #e2a400";
-      } else if (isModern) {
-        tableHeaderBg = "#f8fafc";
-        tableHeaderColor = "#475467";
-        headerBorder = "2px solid #e2e8f0";
-      }
-
-      const rowsHtml = data.items.map((item, idx) => `
-        <tr>
-          <td style="padding:10px;border-bottom:1px solid #e2e8f0;text-align:center;">${idx + 1}</td>
-          <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${escapeHtml(item.name)}</td>
-          <td style="padding:10px;border-bottom:1px solid #e2e8f0;text-align:center;">${item.qty}</td>
-          <td style="padding:10px;border-bottom:1px solid #e2e8f0;text-align:right;">${formatCurrency(item.rate)}</td>
-          <td style="padding:10px;border-bottom:1px solid #e2e8f0;text-align:right;">${formatCurrency(item.amount)}</td>
-        </tr>
-      `).join('');
-
-      return `
-        <div style="font-family: ${fontFamily}; color: #1e293b; padding: 10px;">
-          <div style="display:flex;justify-content:space-between;border-bottom:${headerBorder};padding-bottom:16px;margin-bottom:20px;">
-            <div>
-              <h2 style="font-size:24px;margin:0;font-weight:bold;">${escapeHtml(data.companyName)}</h2>
-              <div style="font-size:12px;color:#64748b;margin-top:4px;">Template: ${TEMPLATE_NAMES[data.template] || 'Corporate'}</div>
-            </div>
-            <div style="text-align:right;">
-              <h3 style="margin:0;font-size:22px;color:#111827;">QUOTATION</h3>
-              <div style="font-size:12px;color:#64748b;margin-top:4px;">Date: ${escapeHtml(data.date)}</div>
-            </div>
-          </div>
-
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;font-size:13px;">
-            <div>
-              <strong>Prepared For:</strong>
-              <div style="font-size:15px;font-weight:bold;margin-top:2px;">${escapeHtml(data.client)}</div>
-            </div>
-            <div style="text-align:right;">
-              <strong>Validity:</strong>
-              <div>${escapeHtml(data.validity)}</div>
-            </div>
-          </div>
-
-          <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:13px;">
-            <thead>
-              <tr style="background:${tableHeaderBg};color:${tableHeaderColor};">
-                <th style="padding:10px;width:40px;">#</th>
-                <th style="padding:10px;text-align:left;">Item Description</th>
-                <th style="padding:10px;width:60px;">Qty</th>
-                <th style="padding:10px;text-align:right;width:120px;">Rate</th>
-                <th style="padding:10px;text-align:right;width:140px;">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rowsHtml}
-            </tbody>
-          </table>
-
-          <div style="margin-left:auto;width:280px;font-size:13px;">
-            <div style="display:flex;justify-content:space-between;padding:4px 0;">
-              <span>Subtotal:</span>
-              <strong>${formatCurrency(data.subtotal)}</strong>
-            </div>
-            ${data.taxP ? `
-            <div style="display:flex;justify-content:space-between;padding:4px 0;">
-              <span>GST / Tax (${data.taxP}%):</span>
-              <strong>${formatCurrency(data.taxAmount)}</strong>
-            </div>` : ''}
-            <div style="display:flex;justify-content:space-between;padding:8px 0;border-top:${headerBorder};font-size:16px;font-weight:bold;margin-top:4px;">
-              <span>Grand Total:</span>
-              <span>${formatCurrency(data.grandTotal)}</span>
-            </div>
-          </div>
-
-          ${stampHtml}
-        </div>
-      `;
-    }
-
-    function printQuotation(companyIdx) {
-      const data = getQuotationDataForCompany(companyIdx);
-      document.getElementById('printableDocument').innerHTML = renderPrintableQuotation(data);
-      document.getElementById('printModal').style.display = 'block';
-    }
-
-    function generatePDF(companyIdx) {
-      printQuotation(companyIdx);
-    }
-
-    function closePrintModal() {
-      document.getElementById('printModal').style.display = 'none';
-    }
-
-    function closeDataViewerModal() {
-      document.getElementById('dataViewerModal').style.display = 'none';
-    }
+    const viewerError = e => { $('dataViewerContent').innerHTML = `<div style="padding:20px;text-align:center;color:#b42318;">${escapeHtml(e.message)}</div>`; };
+    const TH = 'padding:10px;text-align:left;', TD = 'padding:10px;color:#475467;';
+    const table = (heads, rows) => `<div style="max-height:450px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:#f8fafc;color:#475467;text-transform:uppercase;font-size:10px;letter-spacing:.5px;">${heads.map(h => `<th style="${TH}">${h}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
 
     async function openCompaniesModal() {
-      document.getElementById('dataViewerTitle').textContent = '🏢 Companies List (from Google Sheet: CompanyDetails)';
-      const content = document.getElementById('dataViewerContent');
-      content.innerHTML = '<div style="padding:20px;text-align:center;color:#64748b;">Fetching companies from Google Sheet...</div>';
-      document.getElementById('dataViewerModal').style.display = 'block';
-
-      let list = companiesList;
-      if (currentSheetUrl) {
-        const res = await callSheetApi('getCompanies');
-        if (res && res.companies && res.companies.length) list = res.companies;
-      }
-
-      if (!list || !list.length) {
-        content.innerHTML = '<div style="padding:20px;text-align:center;color:#64748b;">No companies found in Sheet. Add companies in Settings / Company Details.</div>';
-        return;
-      }
-
-      const rows = list.map(c => `
-        <tr style="border-bottom:1px solid #f1f5f9;">
-          <td style="padding:10px;font-weight:bold;color:#0f172a;">${escapeHtml(c.name)}</td>
-          <td style="padding:10px;color:#475467;">${escapeHtml(c.phone || '-')}</td>
-          <td style="padding:10px;color:#475467;">${escapeHtml(c.email || '-')}</td>
-          <td style="padding:10px;color:#475467;">${escapeHtml(c.gst || '-')}</td>
-          <td style="padding:10px;"><span style="padding:2px 8px;border-radius:12px;background:#f1f5f9;font-size:11px;font-weight:600;color:#0f172a;">${escapeHtml(c.template || 'corporate')}</span></td>
-          <td style="padding:10px;text-align:right;">
-            <button onclick="selectCompanyIntoForm('${escapeHtml(c.name)}')" style="background:#111827;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">Select</button>
-          </td>
-        </tr>
-      `).join('');
-
-      content.innerHTML = `
-        <div style="max-height:450px;overflow-y:auto;">
-          <table style="width:100%;border-collapse:collapse;font-size:13px;">
-            <thead>
-              <tr style="background:#f8fafc;color:#475467;text-transform:uppercase;font-size:10px;letter-spacing:0.5px;">
-                <th style="padding:10px;text-align:left;">Company Name</th>
-                <th style="padding:10px;text-align:left;">Phone</th>
-                <th style="padding:10px;text-align:left;">Email</th>
-                <th style="padding:10px;text-align:left;">GSTIN</th>
-                <th style="padding:10px;text-align:left;">Template</th>
-                <th style="padding:10px;text-align:right;">Action</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>
-      `;
-    }
-
-    function selectCompanyIntoForm(compName) {
-      document.getElementById('company1Select').value = compName;
-      onCompanyChange(1);
-      closeDataViewerModal();
+      openViewer('🏢 Companies (Google Sheet: CompanyDetails)');
+      try {
+        await fetchCompaniesData();
+        if (!companiesList.length) { $('dataViewerContent').innerHTML = '<div style="padding:20px;text-align:center;color:#64748b;">No companies yet. Add them in Admin → Companies.</div>'; return; }
+        $('dataViewerContent').innerHTML = table(['Company', 'Phone', 'Email', 'GSTIN', 'Currency', 'Template'], companiesList.map(c => `<tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="${TD}font-weight:bold;color:#0f172a;">${escapeHtml(c.name)}</td><td style="${TD}">${escapeHtml(c.phone || '-')}</td><td style="${TD}">${escapeHtml(c.email || '-')}</td>
+          <td style="${TD}">${escapeHtml(c.gst || '-')}</td><td style="${TD}">${escapeHtml(c.currency || '₹')}</td><td style="${TD}">${escapeHtml(TEMPLATE_NAMES[c.template] || c.template || 'Corporate')}</td></tr>`).join(''));
+      } catch (e) { viewerError(e); }
     }
 
     async function openProductsModal() {
-      document.getElementById('dataViewerTitle').textContent = '📦 Products Catalog (from Google Sheet: ItemCatalog)';
-      const content = document.getElementById('dataViewerContent');
-      content.innerHTML = '<div style="padding:20px;text-align:center;color:#64748b;">Fetching product catalog from Google Sheet...</div>';
-      document.getElementById('dataViewerModal').style.display = 'block';
-
-      let list = productCatalog;
-      if (currentSheetUrl) {
-        const res = await callSheetApi('getItems');
-        if (res && res.items && res.items.length) list = res.items;
-      }
-
-      if (!list || !list.length) {
-        content.innerHTML = '<div style="padding:20px;text-align:center;color:#64748b;">No products found in ItemCatalog.</div>';
-        return;
-      }
-
-      const rows = list.map(p => `
-        <tr style="border-bottom:1px solid #f1f5f9;">
-          <td style="padding:10px;font-weight:bold;color:#0f172a;">${escapeHtml(p.name)}</td>
-          <td style="padding:10px;color:#475467;">${formatCurrency(p.cost || 0)}</td>
-          <td style="padding:10px;color:#475467;">${(p.defaultProfit || 0)}%</td>
-          <td style="padding:10px;font-weight:bold;color:#059669;">${formatCurrency(p.lastRate || p.cost || 0)}</td>
-          <td style="padding:10px;text-align:right;">
-            <button onclick="addProductFromModal('${escapeHtml(p.name)}', ${p.lastRate || p.cost || 0})" style="background:#0891b2;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">+ Add Row</button>
-          </td>
-        </tr>
-      `).join('');
-
-      content.innerHTML = `
-        <div style="max-height:450px;overflow-y:auto;">
-          <table style="width:100%;border-collapse:collapse;font-size:13px;">
-            <thead>
-              <tr style="background:#f8fafc;color:#475467;text-transform:uppercase;font-size:10px;letter-spacing:0.5px;">
-                <th style="padding:10px;text-align:left;">Product / Item Name</th>
-                <th style="padding:10px;text-align:left;">Cost Rate</th>
-                <th style="padding:10px;text-align:left;">Profit %</th>
-                <th style="padding:10px;text-align:left;">Saved Rate</th>
-                <th style="padding:10px;text-align:right;">Action</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>
-      `;
-    }
-
-    function addProductFromModal(name, rate) {
-      addProductRow(name, 1, rate, rate, rate);
-      closeDataViewerModal();
+      openViewer('📦 Products Catalog (Google Sheet: ItemCatalog)');
+      try {
+        await fetchProductCatalog();
+        if (!productCatalog.length) { $('dataViewerContent').innerHTML = '<div style="padding:20px;text-align:center;color:#64748b;">No products in ItemCatalog yet.</div>'; return; }
+        $('dataViewerContent').innerHTML = table(['Product', 'Cost', 'Profit %', 'Saved rate', ''], productCatalog.map((p, i) => `<tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="${TD}font-weight:bold;color:#0f172a;">${escapeHtml(p.name)}</td><td style="${TD}">${formatCurrency(p.cost || 0)}</td><td style="${TD}">${p.defaultProfit || 0}%</td>
+          <td style="${TD}font-weight:bold;color:#059669;">${formatCurrency(p.lastRate || p.cost || 0)}</td>
+          <td style="${TD}text-align:right;"><button data-i="${i}" class="addProd" style="background:#0891b2;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">Add</button></td></tr>`).join(''));
+        document.querySelectorAll('.addProd').forEach(b => b.onclick = () => { const p = productCatalog[+b.dataset.i]; const r = p.lastRate || p.cost || 0; addProductRow(p.name, 1, r, r, r); closeDataViewerModal(); });
+      } catch (e) { viewerError(e); }
     }
 
     async function openClientsModal() {
-      document.getElementById('dataViewerTitle').textContent = '👥 Clients List (from Google Sheet: Invoices / Quotations)';
-      const content = document.getElementById('dataViewerContent');
-      content.innerHTML = '<div style="padding:20px;text-align:center;color:#64748b;">Fetching clients from Google Sheet...</div>';
-      document.getElementById('dataViewerModal').style.display = 'block';
-
-      let list = [];
-      if (currentSheetUrl) {
-        const res = await callSheetApi('getClients');
-        if (res && res.clients && res.clients.length) list = res.clients;
-      }
-
-      if (!list || !list.length) {
-        content.innerHTML = '<div style="padding:20px;text-align:center;color:#64748b;">No clients found in saved documents yet.</div>';
-        return;
-      }
-
-      const rows = list.map(c => `
-        <tr style="border-bottom:1px solid #f1f5f9;">
-          <td style="padding:10px;font-weight:bold;color:#0f172a;">${escapeHtml(c.name)}</td>
-          <td style="padding:10px;color:#475467;">${escapeHtml(c.mobile || '-')}</td>
-          <td style="padding:10px;color:#475467;">${escapeHtml(c.company || '-')}</td>
-          <td style="padding:10px;text-align:center;"><span style="padding:2px 8px;border-radius:12px;background:#e0f2fe;color:#0369a1;font-size:11px;font-weight:700;">${c.totalDocs || 1} docs</span></td>
-          <td style="padding:10px;text-align:right;">
-            <button onclick="selectClientIntoForm('${escapeHtml(c.name)}')" style="background:#2563eb;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">Select</button>
-          </td>
-        </tr>
-      `).join('');
-
-      content.innerHTML = `
-        <div style="max-height:450px;overflow-y:auto;">
-          <table style="width:100%;border-collapse:collapse;font-size:13px;">
-            <thead>
-              <tr style="background:#f8fafc;color:#475467;text-transform:uppercase;font-size:10px;letter-spacing:0.5px;">
-                <th style="padding:10px;text-align:left;">Client Name</th>
-                <th style="padding:10px;text-align:left;">Mobile</th>
-                <th style="padding:10px;text-align:left;">Company</th>
-                <th style="padding:10px;text-align:center;">Total Docs</th>
-                <th style="padding:10px;text-align:right;">Action</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>
-      `;
-    }
-
-    function selectClientIntoForm(clientName) {
-      document.getElementById('clientInput').value = clientName;
-      closeDataViewerModal();
+      openViewer('👥 Clients (Google Sheet: Invoices / Quotations)');
+      try {
+        const list = (await callSheetApi('getClients')).clients || [];
+        if (!list.length) { $('dataViewerContent').innerHTML = '<div style="padding:20px;text-align:center;color:#64748b;">No clients in saved documents yet.</div>'; return; }
+        $('dataViewerContent').innerHTML = table(['Client', 'Mobile', 'Company', 'Docs', ''], list.map((c, i) => `<tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="${TD}font-weight:bold;color:#0f172a;">${escapeHtml(c.name)}</td><td style="${TD}">${escapeHtml(c.mobile || '-')}</td><td style="${TD}">${escapeHtml(c.company || '-')}</td>
+          <td style="${TD}">${c.totalDocs || 1}</td><td style="${TD}text-align:right;"><button data-i="${i}" class="pickClient" style="background:#2563eb;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">Select</button></td></tr>`).join(''));
+        document.querySelectorAll('.pickClient').forEach(b => b.onclick = () => { $('clientInput').value = list[+b.dataset.i].name; closeDataViewerModal(); });
+      } catch (e) { viewerError(e); }
     }
   </script>
 </body>

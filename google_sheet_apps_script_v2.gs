@@ -52,12 +52,12 @@ const COL = {
   docNo: 0, date: 1, company: 2, phone: 3, email: 4, address: 5, gst: 6,
   client: 7, clientMobile: 8, validity: 9, tax: 10, profit: 11, mode: 12,
   simpleMode: 13, notes: 14, total: 15, items: 16, updatedAt: 17,
-  internalNote: 18, paymentStatus: 19
+  internalNote: 18, paymentStatus: 19, comparisonId: 20, currency: 21
 };
 const DOC_HEADERS = [
   'DocNo','Date','Company','Phone','Email','Address','GSTIN','Client','ClientMobile',
   'Validity','Tax','DefaultProfit','Mode','SimpleMode','Notes','Total','ItemsJSON',
-  'UpdatedAt','InternalNote','PaymentStatus'
+  'UpdatedAt','InternalNote','PaymentStatus','ComparisonId','Currency'
 ];
 const DOC_COLS = DOC_HEADERS.length;
 const COMPANY_HEADERS = ['CompanyName','Phone','Email','Address','GSTIN','Currency','Template','UpdatedAt','InvoiceFormat','QuotationFormat'];
@@ -67,7 +67,7 @@ const COUNTER_HEADERS = ['DocType','Year','LastNumber','Pool'];
 
 function setup_() {
   const cache = CacheService.getScriptCache();
-  if (cache.get('setup_v4')) return;
+  if (cache.get('setup_v5')) return;
 
   ensureSheet_('CompanyDetails', COMPANY_HEADERS, false);
   ensureSheet_('Invoices', DOC_HEADERS, true);
@@ -75,7 +75,7 @@ function setup_() {
   ensureSheet_('ItemCatalog', ['ItemName','CostRate','DefaultProfit','LastRate','UpdatedAt'], false);
   ensureSheet_('DocCounters', COUNTER_HEADERS, false);
 
-  cache.put('setup_v4', '1', 600);
+  cache.put('setup_v5', '1', 600);
 }
 
 // Creates the sheet if missing; otherwise only rewrites the header row (data untouched).
@@ -87,6 +87,7 @@ function ensureSheet_(name, headers, isDoc) {
   } else {
     // Older versions labelled column 16 "InternalNote" although it held Total.
     // Rewriting the labels fixes that without touching any data row.
+    if (sh.getMaxColumns() < headers.length) sh.insertColumnsAfter(sh.getMaxColumns(), headers.length - sh.getMaxColumns());
     sh.getRange(1, 1, 1, headers.length).setValues([headers]);
   }
   if (isDoc) sh.getRange(1, 1, sh.getMaxRows(), 1).setNumberFormat('@'); // keep DocNo as text
@@ -110,6 +111,10 @@ function doPost(e) {
         return json_({ok:true,items:getItems_()});
       case 'saveDocument':
         return json_(saveDocument_(data, sess));
+      case 'saveComparison':
+        return json_(saveComparison_(data, sess));
+      case 'getComparison':
+        return json_(getComparison_(data, sess));
       case 'fetchDocuments':
         return json_(fetchDocuments_(data.docNo||'', data.name||'', data.mobile||'', data.docType||'', sess));
       case 'getCompany':
@@ -117,7 +122,7 @@ function doPost(e) {
       case 'getCompanies':
         return json_(getCompanies_());
       case 'saveCompany':
-        return json_(saveCompany_(data.company));
+        return json_(saveCompany_(data.company, sess));
       case 'getClients':
         return json_(getClients_());
       case 'getNextNumber':
@@ -134,6 +139,10 @@ function doPost(e) {
         return json_(requireAdmin_(sess) || adminList_(data, sess));
       case 'adminGet':
         return json_(requireAdmin_(sess) || adminGet_(data, sess));
+      case 'adminCompanies':
+        return json_(requireAdmin_(sess) || adminCompanies_(sess));
+      case 'adminSaveCompany':
+        return json_(requireAdmin_(sess) || adminSaveCompany_(data, sess));
       case 'adminUpdate':
         return json_(requireAdmin_(sess) || adminUpdate_(data, sess));
       default:
@@ -335,7 +344,7 @@ function getClients_() {
 }
 
 // Upsert by company name (a new name adds a company). Numbering formats are only changed when supplied.
-function saveCompany_(c) {
+function saveCompany_(c, sess) {
   if (!c || !String(c.name || '').trim()) return {ok:false,error:'Company name is required'};
   const sh = SS.getSheetByName('CompanyDetails');
   const name = String(c.name).trim();
@@ -352,11 +361,12 @@ function saveCompany_(c) {
 
     let invFmt = existing ? String(existing[8] || '') : '';
     let qtFmt = existing ? String(existing[9] || '') : '';
-    if (c.invoiceFormat != null && String(c.invoiceFormat).trim() !== '') {
+    // Numbering formats are admin-only: anonymous saves keep the stored formats.
+    if (sess && c.invoiceFormat != null && String(c.invoiceFormat).trim() !== '') {
       const err = validateFormat_(c.invoiceFormat); if (err) return {ok:false,error:'Invoice format: ' + err};
       invFmt = String(c.invoiceFormat).trim();
     }
-    if (c.quotationFormat != null && String(c.quotationFormat).trim() !== '') {
+    if (sess && c.quotationFormat != null && String(c.quotationFormat).trim() !== '') {
       const err = validateFormat_(c.quotationFormat); if (err) return {ok:false,error:'Quotation format: ' + err};
       qtFmt = String(c.quotationFormat).trim();
     }
@@ -386,62 +396,143 @@ function findDocRow_(sh, docNo) {
 
 function saveDocument_(d, sess) {
   if (!d) return {ok:false,error:'No document data'};
-  const type = (d.docType || 'quotation').toLowerCase() === 'invoice' ? 'invoice' : 'quotation';
-  const sh = SS.getSheetByName(docSheetName_(type));
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
-    const items = d.items || [];
-    const subtotal = items.reduce((s,x) => s + Number(x.amount || 0), 0);
-    const total = subtotal * (1 + Number(d.tax || 0) / 100);
-
-    let docNo = String(d.docNo || '').trim();
-    let rowNo = docNo ? findDocRow_(sh, docNo) : -1;
-    let renumbered = false;
-
-    if (rowNo > 0) {
-      const existing = sh.getRange(rowNo, 1, 1, DOC_COLS).getValues()[0];
-      if (d.isNew) {
-        // Client asked for a *new* document but the number was taken meanwhile
-        // (another session saved first). Never overwrite — take the next free one.
-        docNo = allocateNumber_(type, d.company);
-        rowNo = -1;
-        renumbered = true;
-      } else if (normName_(existing[COL.company]) !== normName_(d.company) && String(existing[COL.company]).trim() !== '') {
-        return {ok:false, error:'Document number ' + docNo + ' already belongs to another company. Duplicate numbers are not allowed.'};
-      }
-    } else if (!docNo) {
-      docNo = allocateNumber_(type, d.company);
-    }
-
-    const prev = rowNo > 0 ? sh.getRange(rowNo, 1, 1, DOC_COLS).getValues()[0] : null;
-    // Internal note & payment status are admin-only: anonymous saves keep what is stored.
-    let internalNote = prev ? String(prev[COL.internalNote] || '') : '';
-    let paymentStatus = prev ? String(prev[COL.paymentStatus] || '') : '';
-    if (sess && companyAllowed_(sess, d.company)) {
-      if (d.internalNote != null) internalNote = String(d.internalNote);
-      if (d.paymentStatus && PAYMENT_STATUSES.indexOf(d.paymentStatus) >= 0) paymentStatus = d.paymentStatus;
-    }
-    if (!paymentStatus) paymentStatus = 'Pending';
-
-    const row = [
-      docNo, d.date, d.company, d.phone, d.email, d.address, d.gst,
-      d.client, d.clientMobile, d.validity, d.tax, d.profit, d.mode,
-      d.simpleMode, d.notes, total, JSON.stringify(items), new Date(),
-      internalNote, paymentStatus
-    ];
-
-    if (rowNo > 0) sh.getRange(rowNo, 1, 1, row.length).setValues([row]);
-    else sh.appendRow(row);
-
-    bumpCounter_(type, d.company, docNo);
-    updateItemCatalog_(items);
-
-    return {ok:true, message:(type === 'invoice' ? 'Invoice' : 'Quotation')+' saved', total:total,
-            docNo:docNo, renumbered:renumbered};
+    return saveDocumentCore_(d, sess, {});
   } finally {
     lock.releaseLock();
   }
+}
+
+// Caller must hold the script lock.
+function saveDocumentCore_(d, sess, opts) {
+  const type = (d.docType || 'quotation').toLowerCase() === 'invoice' ? 'invoice' : 'quotation';
+  const sh = SS.getSheetByName(docSheetName_(type));
+  const items = d.items || [];
+  const subtotal = items.reduce((s,x) => s + Number(x.amount || 0), 0);
+  const total = Math.round(subtotal * (1 + Number(d.tax || 0) / 100) * 100) / 100;
+
+  let docNo = String(d.docNo || '').trim();
+  let rowNo = docNo ? findDocRow_(sh, docNo) : -1;
+  let renumbered = false;
+
+  if (rowNo > 0) {
+    const existing = sh.getRange(rowNo, 1, 1, DOC_COLS).getValues()[0];
+    if (d.isNew) {
+      // Client asked for a *new* document but the number was taken meanwhile
+      // (another session saved first). Never overwrite — take the next free one.
+      docNo = allocateNumber_(type, d.company);
+      rowNo = -1;
+      renumbered = true;
+    } else if (normName_(existing[COL.company]) !== normName_(d.company) && String(existing[COL.company]).trim() !== '') {
+      return {ok:false, error:'Document number ' + docNo + ' already belongs to another company. Duplicate numbers are not allowed.'};
+    }
+  } else if (!docNo) {
+    docNo = allocateNumber_(type, d.company);
+  }
+
+  const prev = rowNo > 0 ? sh.getRange(rowNo, 1, 1, DOC_COLS).getValues()[0] : null;
+  // Internal note & payment status are admin-only: anonymous saves keep what is stored.
+  let internalNote = prev ? String(prev[COL.internalNote] || '') : '';
+  let paymentStatus = prev ? String(prev[COL.paymentStatus] || '') : '';
+  if (sess && companyAllowed_(sess, d.company)) {
+    if (d.internalNote != null) internalNote = String(d.internalNote);
+    if (d.paymentStatus && PAYMENT_STATUSES.indexOf(d.paymentStatus) >= 0) paymentStatus = d.paymentStatus;
+  }
+  if (!paymentStatus) paymentStatus = 'Pending';
+  const comparisonId = String(d.comparisonId || (prev ? prev[COL.comparisonId] : '') || '');
+  const currency = String(d.currency || (prev ? prev[COL.currency] : '') || '');
+
+  const row = [
+    docNo, d.date, d.company, d.phone, d.email, d.address, d.gst,
+    d.client, d.clientMobile, d.validity, d.tax, d.profit, d.mode,
+    d.simpleMode, d.notes, total, JSON.stringify(items), new Date(),
+    internalNote, paymentStatus, comparisonId, currency
+  ];
+
+  if (rowNo > 0) sh.getRange(rowNo, 1, 1, row.length).setValues([row]);
+  else sh.appendRow(row);
+
+  bumpCounter_(type, d.company, docNo);
+  if (!opts.skipCatalog) updateItemCatalog_(items);
+
+  return {ok:true, message:(type === 'invoice' ? 'Invoice' : 'Quotation')+' saved', total:total,
+          docNo:docNo, renumbered:renumbered, docType:type};
+}
+
+// ─── 3-company comparison (one product list, one quotation per company) ───
+
+function newComparisonId_() {
+  const d = new Date();
+  return 'CMP-' + d.getFullYear() + ('0' + (d.getMonth() + 1)).slice(-2) + ('0' + d.getDate()).slice(-2) + '-' + randomHex_(6).toUpperCase();
+}
+
+function round2_(n) { return Math.round(Number(n || 0) * 100) / 100; }
+
+// Saves every quotation of a comparison under ONE lock, validating first so a
+// failure never leaves a half-saved set. Company 1 (quotes[0]) is the base: only
+// its rates update the item catalog, so variations never overwrite saved rates.
+function saveComparison_(d, sess) {
+  const quotes = (d && d.quotes) || [];
+  if (quotes.length < 2 || quotes.length > 3) return {ok:false, error:'A comparison needs 2 or 3 companies.'};
+  const seen = {};
+  for (let i = 0; i < quotes.length; i++) {
+    const n = normName_(quotes[i].company);
+    if (!n) return {ok:false, error:'Select a company for every column.'};
+    if (seen[n]) return {ok:false, error:'Each column must use a different company.'};
+    seen[n] = true;
+  }
+  const sig = it => JSON.stringify((it || []).map(x => [String(x.name || '').trim().toLowerCase(), Number(x.q || 0)]));
+  const base = sig(quotes[0].items);
+  for (let i = 1; i < quotes.length; i++) {
+    if (sig(quotes[i].items) !== base) return {ok:false, error:'All companies must quote the same product list and quantities.'};
+  }
+  if (!(quotes[0].items || []).length) return {ok:false, error:'Add at least one product.'};
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const sh = SS.getSheetByName('Quotations');
+    // Pre-flight: a given, non-new number must belong to the same company.
+    for (let i = 0; i < quotes.length; i++) {
+      const q = quotes[i];
+      if (q.docNo && !q.isNew) {
+        const rn = findDocRow_(sh, q.docNo);
+        if (rn > 0 && normName_(sh.getRange(rn, COL.company + 1).getValue()) !== normName_(q.company)) {
+          return {ok:false, error:'Document number ' + q.docNo + ' already belongs to another company.'};
+        }
+      }
+    }
+    const cmpId = String(d.comparisonId || '') || newComparisonId_();
+    const results = quotes.map((q, i) => {
+      const items = (q.items || []).map(x => Object.assign({}, x, {amount: round2_(Number(x.q || 0) * Number(x.rate || 0))}));
+      const r = saveDocumentCore_(Object.assign({}, d.common || {}, q, {docType:'quotation', comparisonId:cmpId, items:items}),
+                                  sess, {skipCatalog: i > 0});
+      r.company = q.company;
+      return r;
+    });
+    return {ok:true, comparisonId:cmpId, results:results};
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Load a saved comparison by id or by any of its quotation numbers.
+function getComparison_(q, sess) {
+  const sh = SS.getSheetByName('Quotations');
+  if (sh.getLastRow() < 2) return {ok:false, error:'Comparison not found'};
+  const rows = sh.getRange(2, 1, sh.getLastRow() - 1, DOC_COLS).getValues();
+  let id = String(q.comparisonId || '').trim();
+  if (!id && q.docNo) {
+    const hit = rows.filter(r => String(r[COL.docNo]).trim() === String(q.docNo).trim())[0];
+    id = hit ? String(hit[COL.comparisonId] || '') : '';
+  }
+  if (!id) return {ok:false, error:'This quotation is not part of a comparison.'};
+  const quotes = rows.filter(r => String(r[COL.comparisonId]) === id)
+    .map(r => docFromRow_(r, 'quotation', !!(sess && companyAllowed_(sess, r[COL.company]))));
+  if (!quotes.length) return {ok:false, error:'Comparison not found'};
+  return {ok:true, comparisonId:id, quotes:quotes};
 }
 
 // ─── Item Catalog ───
@@ -647,7 +738,8 @@ function docFromRow_(r, type, admin) {
     email: r[COL.email], address: r[COL.address], gst: r[COL.gst],
     client: r[COL.client], clientMobile: r[COL.clientMobile], validity: r[COL.validity],
     tax: r[COL.tax], profit: r[COL.profit], mode: r[COL.mode], simpleMode: r[COL.simpleMode],
-    notes: r[COL.notes], total: r[COL.total], items: parseItems_(r[COL.items])
+    notes: r[COL.notes], total: r[COL.total], items: parseItems_(r[COL.items]),
+    comparisonId: String(r[COL.comparisonId] || ''), currency: String(r[COL.currency] || '')
   };
   if (admin) {
     doc.internalNote = String(r[COL.internalNote] || '');
@@ -705,7 +797,7 @@ function listRow_(x) {
     docType: x.type,
     docNo: String(r[COL.docNo]), date: fmtDate_(r[COL.date]), company: String(r[COL.company] || ''),
     client: String(r[COL.client] || ''), clientMobile: String(r[COL.clientMobile] || ''),
-    total: Number(r[COL.total] || 0),
+    total: Number(r[COL.total] || 0), comparisonId: String(r[COL.comparisonId] || ''), currency: String(r[COL.currency] || '') || '₹',
     paymentStatus: String(r[COL.paymentStatus] || '') || 'Pending',
     internalNote: String(r[COL.internalNote] || ''),
     updatedAt: r[COL.updatedAt] instanceof Date ? r[COL.updatedAt].toISOString() : String(r[COL.updatedAt] || '')
@@ -737,8 +829,9 @@ function adminList_(q, sess) {
 
   const summary = {
     invoiceCount:0, quotationCount:0, invoiceTotal:0, quotationTotal:0,
-    paidTotal:0, outstandingTotal:0, paidCount:0, outstandingCount:0
+    paidTotal:0, outstandingTotal:0, paidCount:0, outstandingCount:0, currencies:[]
   };
+  summary.currencies = Array.from(new Set(filtered.map(d => d.currency)));
   filtered.forEach(d => {
     if (d.docType === 'invoice') {
       summary.invoiceCount++; summary.invoiceTotal += d.total;
@@ -774,7 +867,12 @@ function adminGet_(q, sess) {
   if (rowNo < 0) return {ok:false, error:'Document not found'};
   const r = sh.getRange(rowNo, 1, 1, DOC_COLS).getValues()[0];
   if (!companyAllowed_(sess, r[COL.company])) return {ok:false, error:'Access denied for this company'};
-  return {ok:true, doc:docFromRow_(r, type, true)};
+  const doc = docFromRow_(r, type, true);
+  let siblings = [];
+  if (doc.comparisonId) {
+    siblings = readAllDocs_(sess).filter(x => x.type === 'quotation' && String(x.r[COL.comparisonId]) === doc.comparisonId).map(listRow_);
+  }
+  return {ok:true, doc:doc, siblings:siblings};
 }
 
 // Admin may change only payment status and internal note from the dashboard.
@@ -798,6 +896,50 @@ function adminUpdate_(q, sess) {
     lock.releaseLock();
   }
   return {ok:true};
+}
+
+// ── Company management (admin) ──
+
+const TEMPLATE_IDS = ['corporate','govt','modern','navy','classic','accent','sidebar','gradient','executive','project','vintage','startup','twotone'];
+
+function validateCompany_(c) {
+  if (!c) return 'No company data';
+  if (!String(c.name || '').trim()) return 'Company name is required';
+  if (String(c.name).trim().length > 80) return 'Company name is too long';
+  if (!String(c.phone || '').trim()) return 'Phone number is required';
+  if (!/^[0-9+()\-\s]{6,20}$/.test(String(c.phone).trim())) return 'Phone number looks invalid';
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(c.email || '').trim())) return 'A valid email is required';
+  if (!String(c.address || '').trim()) return 'Address is required';
+  if (TEMPLATE_IDS.indexOf(String(c.template || 'corporate')) < 0) return 'Unknown template';
+  if (!String(c.currency || '₹').trim() || String(c.currency || '₹').length > 5) return 'Currency symbol is invalid';
+  return '';
+}
+
+function adminCompanies_(sess) {
+  const docs = readAllDocs_(sess);
+  const list = readCompanies_().filter(c => companyAllowed_(sess, c.name)).map(c => {
+    const mine = docs.filter(x => normName_(x.r[COL.company]) === normName_(c.name));
+    return Object.assign({}, c, {
+      invoiceCount: mine.filter(x => x.type === 'invoice').length,
+      quotationCount: mine.filter(x => x.type === 'quotation').length,
+      nextInvoiceNo: peekNumber_('invoice', c.name).docNo,
+      nextQuotationNo: peekNumber_('quotation', c.name).docNo
+    });
+  });
+  return {ok:true, companies:list, templates:TEMPLATE_IDS};
+}
+
+// mode 'create' refuses an existing name (no accidental overwrite); 'update' requires it.
+function adminSaveCompany_(q, sess) {
+  const c = q.company;
+  const err = validateCompany_(c);
+  if (err) return {ok:false, error:err};
+  if (!companyAllowed_(sess, c.name)) return {ok:false, error:'Access denied for this company'};
+  const exists = readCompanies_().some(x => normName_(x.name) === normName_(c.name));
+  if (q.mode === 'update' && !exists) return {ok:false, error:'Company not found'};
+  if (q.mode !== 'update' && exists) return {ok:false, error:'A company with this name already exists.'};
+  const res = saveCompany_(c, sess);
+  return res.ok ? {ok:true, message: exists ? 'Company updated' : 'Company added'} : res;
 }
 
 // ─── Utility ───

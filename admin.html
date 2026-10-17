@@ -88,9 +88,21 @@
     .internal { border: 1px dashed #f04438; background: #fffbfa; border-radius: 12px; padding: 12px 14px; margin-bottom: 14px }
     .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #101828; color: #fff; padding: 10px 16px; border-radius: 10px; z-index: 60; font-size: 13px }
 
+    .tabs { display: flex; gap: 6px; margin-bottom: 14px }
+    .tabs button { border: 1px solid var(--line); background: #fff; border-radius: 9px; padding: 8px 16px; font-weight: 600; cursor: pointer }
+    .tabs button.on { background: #101828; color: #fff; border-color: #101828 }
+    .modal { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: rgba(16, 24, 40, .5); overflow-y: auto }
+    .modal form { background: #fff; border-radius: 16px; width: min(620px, 100%); padding: 22px; max-height: 92vh; overflow-y: auto }
+    .modal h2 { margin: 0 0 14px; font-size: 17px }
+    .fgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px }
+    .fgrid .full { grid-column: 1 / -1 }
+    .hintx { font-size: 12px; color: var(--muted); margin-top: 4px }
+    .req::after { content: ' *'; color: var(--bad) }
+    .mono { font-family: ui-monospace, Menlo, monospace; font-size: 12px }
     @media (max-width: 1000px) { .filters { grid-template-columns: 1fr 1fr 1fr } .filters .wide { grid-column: 1 / -1 } }
     @media (max-width: 720px) {
       .filters { grid-template-columns: 1fr 1fr }
+      .fgrid { grid-template-columns: 1fr }
       table, thead, tbody, tr, td { display: block; min-width: 0 }
       thead { display: none }
       tbody tr { padding: 12px 14px; border-top: 1px solid var(--line) }
@@ -129,6 +141,17 @@
       </div>
     </header>
     <main>
+      <div class="tabs"><button class="on" id="tabRecords">Records</button><button id="tabCompanies">Companies</button></div>
+      <section id="companiesView" hidden>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px;flex-wrap:wrap">
+          <div style="color:var(--muted)">Companies saved in the Google Sheet (<b>CompanyDetails</b>). They appear in the app's company switcher and the 3-company workspace.</div>
+          <button class="btn" id="addCompanyBtn">+ Add Company</button>
+        </div>
+        <div class="panel"><div class="tablewrap" style="border-top:0"><table>
+          <thead><tr><th>Company</th><th>Contact</th><th>Currency</th><th>Template</th><th>Numbering</th><th class="num">Docs</th><th></th></tr></thead>
+          <tbody id="companyRows"></tbody></table><div class="empty" id="companyEmpty" hidden>No companies yet. Click “Add Company”.</div></div></div>
+      </section>
+      <div id="recordsView">
       <section class="cards" id="cards"></section>
       <section class="panel">
         <div class="filters">
@@ -157,9 +180,11 @@
             <button class="btn ghost" id="prevBtn">‹ Prev</button><button class="btn ghost" id="nextBtn">Next ›</button></span>
         </div>
       </section>
+      </div>
     </main>
   </div>
 
+  <div id="modalRoot"></div>
   <div id="drawerRoot"></div>
 
   <script>
@@ -173,7 +198,7 @@
       del: k => { try { localStorage.removeItem(k) } catch (e) { } }
     };
     const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    const money = n => '₹ ' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const money = (n, cur) => (cur || '₹') + ' ' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const apiUrl = () => store.get(API_KEY) || DEFAULT_API;
 
     class AuthError extends Error { }
@@ -256,22 +281,25 @@
     }
 
     function renderCards(s, total) {
+      const cur = s.currencies.length === 1 ? s.currencies[0] : '₹';
+      const mixed = s.currencies.length > 1 ? ' · mixed currencies' : '';
+      const mc = n => money(n, cur);
       const card = (k, v, sub, cls = '') => `<div class="stat ${cls}"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${sub}</div></div>`;
       $('cards').innerHTML =
-        card('Total invoiced', money(s.invoiceTotal), s.invoiceCount + ' invoices') +
-        card('Paid', money(s.paidTotal), s.paidCount + ' invoices', 'paid') +
-        card('Outstanding', money(s.outstandingTotal), s.outstandingCount + ' pending / partial', 'out') +
-        card('Quotations value', money(s.quotationTotal), s.quotationCount + ' quotations') +
-        card('Matching records', total, 'with current filters');
+        card('Total invoiced', mc(s.invoiceTotal), s.invoiceCount + ' invoices') +
+        card('Paid', mc(s.paidTotal), s.paidCount + ' invoices', 'paid') +
+        card('Outstanding', mc(s.outstandingTotal), s.outstandingCount + ' pending / partial', 'out') +
+        card('Quotations value', mc(s.quotationTotal), s.quotationCount + ' quotations') +
+        card('Matching records', total, 'with current filters' + mixed);
     }
 
     function renderRows(j) {
       $('empty').hidden = j.rows.length > 0; $('empty').textContent = 'No records match these filters.';
       $('rows').innerHTML = j.rows.map(r => `<tr data-t="${r.docType}" data-n="${esc(r.docNo)}">
         <td data-l="Type"><span class="chip ${r.docType}">${r.docType === 'invoice' ? 'INV' : 'QT'}</span></td>
-        <td data-l="No"><b>${esc(r.docNo)}</b></td><td data-l="Date">${esc(r.date)}</td><td data-l="Company">${esc(r.company)}</td>
+        <td data-l="No"><b>${esc(r.docNo)}</b>${r.comparisonId ? ' <span class="chip Partial" title="' + esc(r.comparisonId) + '">CMP</span>' : ''}</td><td data-l="Date">${esc(r.date)}</td><td data-l="Company">${esc(r.company)}</td>
         <td data-l="Customer">${esc(r.client)}<div style="color:var(--muted);font-size:12px">${esc(r.clientMobile)}</div></td>
-        <td class="num" data-l="Amount"><b>${money(r.total)}</b></td>
+        <td class="num" data-l="Amount"><b>${money(r.total, r.currency)}</b></td>
         <td data-l="Payment"><span class="chip ${esc(r.paymentStatus)}">${esc(r.paymentStatus)}</span></td>
         <td data-l="Note"><div class="note" title="${esc(r.internalNote)}">${esc(r.internalNote) || '—'}</div></td></tr>`).join('');
       const from = j.total ? (j.page - 1) * j.pageSize + 1 : 0, to = Math.min(j.total, j.page * j.pageSize);
@@ -300,18 +328,21 @@
     async function openDrawer(type, no) {
       $('drawerRoot').innerHTML = '<div class="scrim" onclick="closeDrawer()"></div><aside class="drawer"><div class="hd"><h2>Loading…</h2></div></aside>';
       try {
-        const { doc: d } = await api('adminGet', { docType: type, docNo: no });
-        const items = (d.items || []).map((x, i) => `<tr><td>${i + 1}</td><td>${esc(x.name)}</td><td class="num">${esc(x.q)}</td><td class="num">${money(x.rate)}</td><td class="num">${money(x.amount)}</td></tr>`).join('');
+        const { doc: d, siblings } = await api('adminGet', { docType: type, docNo: no });
+        const cur = d.currency || '₹';
+        const items = (d.items || []).map((x, i) => `<tr><td>${i + 1}</td><td>${esc(x.name)}</td><td class="num">${esc(x.q)}</td><td class="num">${money(x.rate, cur)}</td><td class="num">${money(x.amount, cur)}</td></tr>`).join('');
         const kv = (k, v, full) => `<div class="${full ? 'full' : ''}"><div class="k">${k}</div><div class="v">${esc(v) || '—'}</div></div>`;
         $('drawerRoot').innerHTML = `<div class="scrim" onclick="closeDrawer()"></div><aside class="drawer">
           <div class="hd"><h2><span class="chip ${d.docType}">${d.docType === 'invoice' ? 'INVOICE' : 'QUOTATION'}</span> ${esc(d.docNo)}</h2><button class="btn ghost" onclick="closeDrawer()">Close</button></div>
           <div class="bd">
-            <div class="kv">${kv('Date', d.date)}${kv('Total', money(d.total))}${kv('Company', d.company)}${kv('Company GSTIN', d.gst)}
+            <div class="kv">${kv('Date', d.date)}${kv('Total', money(d.total, cur))}${kv('Company', d.company)}${kv('Company GSTIN', d.gst)}
               ${kv('Customer', d.client)}${kv('Customer mobile', d.clientMobile)}${kv('Tax %', d.tax)}${kv('Validity', d.validity)}
               ${kv('Company contact', [d.phone, d.email].filter(Boolean).join(' · '), true)}${kv('Company address', d.address, true)}
               ${kv('Last updated', d.updatedAt ? new Date(d.updatedAt).toLocaleString() : '')}${kv('Display mode', String(d.simpleMode) === 'true' ? 'Simple' : 'Detailed')}</div>
             <div class="tablewrap"><table class="items"><thead><tr><th>#</th><th>Item</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead><tbody>${items || '<tr><td colspan="5">No items</td></tr>'}</tbody></table></div>
             <div class="kv" style="margin-top:16px">${kv('Public notes (printed)', d.notes, true)}</div>
+            ${siblings && siblings.length > 1 ? `<div class="kv" style="margin-top:6px"><div class="full"><div class="k">3-company comparison · ${esc(d.comparisonId)}</div>
+              <table class="items" style="margin-top:6px"><tbody>${siblings.map(x => `<tr${x.docNo === d.docNo ? ' style="background:#f2f4f7"' : ''}><td><b>${esc(x.docNo)}</b></td><td>${esc(x.company)}</td><td class="num">${money(x.total, x.currency)}</td></tr>`).join('')}</tbody></table></div></div>` : ''}
             <div class="internal"><label style="color:var(--bad)">🔒 Internal note (admin only)</label><textarea id="dNote" rows="4">${esc(d.internalNote)}</textarea>
               <label style="margin-top:10px">Payment status</label>
               <select id="dStatus">${['Pending', 'Partial', 'Paid'].map(s => `<option${s === d.paymentStatus ? ' selected' : ''}>${s}</option>`).join('')}</select></div>
@@ -327,7 +358,65 @@
         else { closeDrawer(); toast(e.message); }
       }
     }
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeDrawer(); $('modalRoot').innerHTML = ''; } });
+
+    // ── Tabs ──
+    function showTab(which) {
+      $('companiesView').hidden = which !== 'companies'; $('recordsView').hidden = which === 'companies';
+      $('tabRecords').classList.toggle('on', which !== 'companies'); $('tabCompanies').classList.toggle('on', which === 'companies');
+      if (which === 'companies') loadCompanies();
+    }
+    $('tabRecords').onclick = () => showTab('records'); $('tabCompanies').onclick = () => showTab('companies');
+
+    // ── Companies ──
+    const TEMPLATE_NAMES = { corporate: 'Corporate', govt: 'Government Formal', modern: 'Modern Minimal', navy: 'Elegant Navy', classic: 'Classic Serif', accent: 'Accent Gold', sidebar: 'Sidebar Accent', gradient: 'Soft Gradient', executive: 'Executive Dark', project: 'Project Minimal', vintage: 'Vintage', startup: 'Startup Bright', twotone: 'Elegant Two-Tone' };
+    let companyCache = [];
+    function authFail(e) { if (e instanceof AuthError) { store.del(TOKEN_KEY); showLogin('Session expired. Please sign in again.'); return true; } return false; }
+    async function loadCompanies() {
+      try {
+        const j = await api('adminCompanies'); companyCache = j.companies;
+        $('companyEmpty').hidden = companyCache.length > 0;
+        $('companyRows').innerHTML = companyCache.map((c, i) => `<tr data-i="${i}">
+          <td><b>${esc(c.name)}</b>${c.gst ? `<div style="color:var(--muted);font-size:12px">GST ${esc(c.gst)}</div>` : ''}</td>
+          <td>${esc(c.phone)}<div style="color:var(--muted);font-size:12px">${esc(c.email)}</div></td>
+          <td>${esc(c.currency)}</td><td>${esc(TEMPLATE_NAMES[c.template] || c.template)}</td>
+          <td class="mono">${esc(c.invoiceFormat)}<br>${esc(c.quotationFormat)}<div style="color:var(--muted)">next: ${esc(c.nextInvoiceNo)} · ${esc(c.nextQuotationNo)}</div></td>
+          <td class="num">${c.invoiceCount} inv<br>${c.quotationCount} qt</td><td class="num"><button class="btn ghost">Edit</button></td></tr>`).join('');
+      } catch (e) { if (!authFail(e)) toast(e.message); }
+    }
+    $('companyRows').addEventListener('click', e => { const tr = e.target.closest('tr'); if (tr) companyModal(companyCache[+tr.dataset.i]); });
+    $('addCompanyBtn').onclick = () => companyModal(null);
+
+    function exNo(f) { const d = new Date(), y = String(d.getFullYear()); return String(f).replace(/\{YYYY\}/g, y).replace(/\{YY\}/g, y.slice(-2)).replace(/\{MM\}/g, ('0' + (d.getMonth() + 1)).slice(-2)).replace(/\{SEQ(?::(\d+))?\}/g, (m, w) => '1'.padStart(+w || 0, '0')); }
+    function companyModal(c) {
+      const edit = !!c; c = c || { currency: '₹', template: 'corporate', invoiceFormat: 'INV-{YYYY}-{SEQ:3}', quotationFormat: 'QT-{YYYY}-{SEQ:3}' };
+      $('modalRoot').innerHTML = `<div class="modal"><form id="cForm" novalidate>
+        <h2>${edit ? 'Edit company' : 'Add company'}</h2><div class="err" id="cErr" hidden></div>
+        <div class="fgrid">
+          <div class="full"><label class="req">Company name</label><input id="cName" value="${esc(c.name)}" ${edit ? 'readonly title="Name cannot be changed (it links existing documents)"' : ''} maxlength="80"></div>
+          <div><label class="req">Phone number</label><input id="cPhone" value="${esc(c.phone)}" placeholder="+91 98765 43210"></div>
+          <div><label class="req">Email</label><input id="cEmail" type="email" value="${esc(c.email)}"></div>
+          <div class="full"><label class="req">Address</label><textarea id="cAddr" rows="2">${esc(c.address)}</textarea></div>
+          <div><label>GST number (optional)</label><input id="cGst" value="${esc(c.gst)}"></div>
+          <div><label class="req">Currency symbol</label><input id="cCur" value="${esc(c.currency)}" maxlength="5"></div>
+          <div class="full"><label>Quotation / invoice template</label><select id="cTpl">${Object.entries(TEMPLATE_NAMES).map(([k, v]) => `<option value="${k}"${k === c.template ? ' selected' : ''}>${v}</option>`).join('')}</select></div>
+          <div><label>Invoice number format</label><input id="cInvF" class="mono" value="${esc(c.invoiceFormat)}"><div class="hintx" id="cInvEx"></div></div>
+          <div><label>Quotation number format</label><input id="cQtF" class="mono" value="${esc(c.quotationFormat)}"><div class="hintx" id="cQtEx"></div></div>
+          <div class="full hintx">Tokens: {YYYY} {YY} {MM} {SEQ} {SEQ:3}. Existing document numbers never change.</div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end"><button type="button" class="btn ghost" id="cCancel">Cancel</button><button class="btn" id="cSave">${edit ? 'Save changes' : 'Add company'}</button></div>
+      </form></div>`;
+      const ex = () => { $('cInvEx').textContent = 'e.g. ' + exNo($('cInvF').value); $('cQtEx').textContent = 'e.g. ' + exNo($('cQtF').value); };
+      $('cInvF').oninput = $('cQtF').oninput = ex; ex();
+      $('cCancel').onclick = () => $('modalRoot').innerHTML = '';
+      $('cForm').onsubmit = async ev => {
+        ev.preventDefault(); $('cSave').disabled = true; $('cErr').hidden = true;
+        const company = { name: $('cName').value.trim(), phone: $('cPhone').value.trim(), email: $('cEmail').value.trim(), address: $('cAddr').value.trim(),
+          gst: $('cGst').value.trim(), currency: $('cCur').value.trim() || '₹', template: $('cTpl').value, invoiceFormat: $('cInvF').value.trim(), quotationFormat: $('cQtF').value.trim() };
+        try { const j = await api('adminSaveCompany', { company, mode: edit ? 'update' : 'create' }); $('modalRoot').innerHTML = ''; toast(j.message); companiesLoaded = false; loadCompanies(); }
+        catch (e) { if (authFail(e)) return; $('cErr').textContent = e.message; $('cErr').hidden = false; $('cSave').disabled = false; }
+      };
+    }
 
     boot();
   </script>

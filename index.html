@@ -2169,7 +2169,7 @@
           </div>
           <div class="section-body" id="companyBody">
             <div class="grid">
-              <div class="full"><label>Saved Companies</label><select id="companyPicker" onchange="pickCompany(this.value)"><option value="">— switch company —</option></select></div>
+              <div class="full"><label>Saved Companies</label><select id="companyPicker" onmousedown="refreshCompanyList()" onchange="pickCompany(this.value)"><option value="">— switch company —</option></select></div>
               <div class="full"><label>Company Name</label><input id="company" value="YOUR COMPANY NAME" onchange="checkCompanyTemplateOnNameChange();onCompanyNameChange()"></div>
               <div><label>Phone</label><input id="phone" value="+91 00000 00000"></div>
               <div><label>Email</label><input id="email" value="info@example.com"></div>
@@ -2247,12 +2247,6 @@
           </div>
           <button class="btn secondary" style="width:100%;margin-top:9px" onclick="addItem()">+ Add Item</button>
           <div class="form-total"><span id="formTotalLabel">Total (incl. tax)</span><b id="formTotal">0.00</b></div>
-          <div class="internal-box admin-only" id="internalBox">
-            <label style="color:#b42318;display:flex;align-items:center;gap:4px;">🔒 Internal Note <span style="font-weight:normal;font-size:10px;color:#667085;">(Admin only — never printed, exported or shown to the customer)</span></label>
-            <textarea id="internalNote" placeholder="Internal notes, supplier costs, reference numbers..."></textarea>
-            <label style="margin-top:8px">Payment Status</label>
-            <select id="paymentStatus"><option>Pending</option><option>Partial</option><option>Paid</option></select>
-          </div>
           <div class="hint">Item name type karte waqt catalog ke matching items suggestions me aayenge. Saved rate
             auto-fill hoga.</div>
         </div>
@@ -2262,6 +2256,12 @@
           <label>Public Notes (Appears on Quotation / Invoice)</label>
           <textarea id="notes">Installation and other charges, if applicable, will be discussed separately.
 Quotation is valid for the period mentioned above.</textarea>
+          <div class="internal-box admin-only" id="internalBox">
+            <label style="color:#b42318;display:flex;align-items:center;gap:4px;">🔒 Internal Note <span style="font-weight:normal;font-size:10px;color:#667085;">(Admin only — never printed, exported or shown to the customer)</span></label>
+            <textarea id="internalNote" placeholder="Internal notes, supplier costs, reference numbers..."></textarea>
+            <label style="margin-top:8px">Payment Status</label>
+            <select id="paymentStatus"><option>Pending</option><option>Partial</option><option>Paid</option></select>
+          </div>
         </div>
 
         <div class="section">
@@ -2371,7 +2371,7 @@ Quotation is valid for the period mentioned above.</textarea>
           <div class="hint">Template selection print, PDF, aur JPEG export me bhi apply hota hai. Preview ke liye Create
             tab kholen.</div>
         </div>
-        <div class="section">
+        <div class="section admin-only" id="numberingSection">
           <h2>Document Numbering</h2>
           <div class="hint" style="margin:0 0 8px">Format for <b id="numCompanyName">this company</b>. Tokens: <code>{YYYY}</code> <code>{YY}</code> <code>{MM}</code> <code>{SEQ}</code> / <code>{SEQ:3}</code> (zero-padded). Existing document numbers never change.</div>
           <label>Invoice number format</label><input id="invoiceFormat" value="INV-{YYYY}-{SEQ:3}" oninput="previewNumbering()">
@@ -2778,6 +2778,9 @@ Quotation is valid for the period mentioned above.</textarea>
     function removeLogo() { logoData = ''; localStorage.removeItem('quotationLogo'); $('logoPreview').textContent = 'No logo selected — Company Name will be shown.'; render() }
 
     // ─── API ───
+    // The Sheet URL is shared with question_maker.html / admin.html through localStorage.
+    try { const su = localStorage.getItem('sheetUrl'); if (su) $('sheetUrl').value = su; else localStorage.setItem('sheetUrl', $('sheetUrl').value.trim()); } catch (e) { }
+    $('sheetUrl').addEventListener('change', () => { try { localStorage.setItem('sheetUrl', $('sheetUrl').value.trim()); localStorage.setItem('qm_api_url', $('sheetUrl').value.trim()); } catch (e) { } refreshCompanyList(); });
     async function api(action, payload = {}) {
       const url = $('sheetUrl').value.trim(); if (!url) throw new Error('Google Apps Script Web App URL missing in Settings.');
       const body = { action, ...payload }; const tk = adminToken(); if (tk) body.token = tk;
@@ -2805,6 +2808,7 @@ Quotation is valid for the period mentioned above.</textarea>
         notes: $('notes').value,
         internalNote: $('internalNote') ? $('internalNote').value : '',
         paymentStatus: $('paymentStatus') ? $('paymentStatus').value : 'Pending',
+        currency: $('currency').value || '₹',
         isNew: docIsNew,
         template: selectedTemplate,
         items: getItems()
@@ -2861,20 +2865,21 @@ Quotation is valid for the period mentioned above.</textarea>
         if (j.ok && j.company) {
           const c = j.company;
           applyNumbering(c);
-          if (c.name) $('company').value = c.name;
-          if (c.phone) $('phone').value = c.phone;
-          if (c.email) $('email').value = c.email;
-          if (c.address) $('address').value = c.address;
-          if (c.gst) $('gst').value = c.gst;
-          if (c.currency) $('currency').value = c.currency;
+          // When switching to a named company every field is replaced (even blanks),
+          // so nothing from the previous company leaks into the new document.
+          const set = (id, v) => { if (name || v) $(id).value = v || ''; };
+          set('company', c.name); set('phone', c.phone); set('email', c.email);
+          set('address', c.address); set('gst', c.gst); set('currency', c.currency || '₹');
           if (c.template) {
             selectTemplate(c.template, true);
             if (c.name) localStorage.setItem('companyTemplate_' + c.name, c.template);
           } else if (c.name) {
             checkCompanyTemplateOnNameChange();
           }
+          return c;
         }
       } catch (e) { }
+      return null;
     }
 
     // ─── Companies & company-wise numbering ───
@@ -2905,13 +2910,18 @@ Quotation is valid for the period mentioned above.</textarea>
       } catch (e) { showToast(e.message, 'error'); }
     }
     async function refreshCompanyList() {
+      const pick = $('companyPicker');
       try {
         const j = await api('getCompanies');
         window.companyList = j.companies || [];
-        const cur = $('company').value.trim().toLowerCase();
-        $('companyPicker').innerHTML = '<option value="">— switch company —</option>' + window.companyList.map(c =>
-          `<option value="${esc(c.name)}"${c.name.toLowerCase() === cur ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
-      } catch (e) { }
+        try { localStorage.setItem('companyListCache', JSON.stringify(window.companyList)); } catch (e) { }
+      } catch (e) {
+        try { window.companyList = JSON.parse(localStorage.getItem('companyListCache') || '[]'); } catch (_) { window.companyList = []; }
+        if (!window.companyList.length) { pick.innerHTML = '<option value="">⚠ Could not load companies (' + esc(e.message) + ')</option>'; return; }
+      }
+      const cur = $('company').value.trim().toLowerCase();
+      pick.innerHTML = (window.companyList.length ? '<option value="">— switch company (' + window.companyList.length + ') —</option>' : '<option value="">No companies saved yet</option>') +
+        window.companyList.map(c => `<option value="${esc(c.name)}"${c.name.toLowerCase() === cur ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
     }
     async function pickCompany(name) {
       if (!name) return;
@@ -2979,6 +2989,7 @@ Quotation is valid for the period mentioned above.</textarea>
       docIsNew = false;
       $('internalNote').value = r.internalNote || '';
       $('paymentStatus').value = r.paymentStatus || 'Pending';
+      if (r.currency) $('currency').value = r.currency;
       const keys = ['company', 'phone', 'email', 'address', 'gst', 'client', 'clientMobile', 'date', 'validity', 'tax', 'profit', 'mode', 'simpleMode', 'notes'];
       keys.forEach(k => { if (r[k] != null && $(k)) $(k).value = r[k] });
       // Use docNo or quoteNo
@@ -3020,14 +3031,36 @@ Quotation is valid for the period mentioned above.</textarea>
     }
 
     // ─── Init ───
+    // Print mode (used by the Question Maker workspace): ?print=1&type=quotation&no=<docNo>
+    // loads the SAVED document and its company's configured template/details/currency, then prints.
+    const PRINT_JOB = (() => { const q = new URLSearchParams(location.search); return q.get('print') && q.get('no') ? { type: q.get('type') === 'invoice' ? 'invoice' : 'quotation', no: q.get('no') } : null; })();
+    async function runPrintJob() {
+      try {
+        const j = await api('fetchDocuments', { docNo: PRINT_JOB.no, docType: PRINT_JOB.type });
+        const r = (j.rows || []).find(x => String(x.docNo).trim() === PRINT_JOB.no.trim());
+        if (!r) throw new Error('Document ' + PRINT_JOB.no + ' was not found in the Google Sheet.');
+        loadDocument(r);
+        await loadCompanyFromSheet(r.company);      // configured template, details & currency
+        render();
+        if (document.fonts && document.fonts.ready) await document.fonts.ready;
+        setTimeout(() => window.print(), 400);
+      } catch (e) { showToast(e.message, 'error'); }
+    }
+
     initResizer();
     initCompanyCollapse();
-    loadData();
-    if (!$('items').children.length) defaults.forEach(x => addItem(x));
     $('simpleMode').value = 'false';
-    loadCompanyFromSheet().then(() => { refreshCompanyList(); fetchNextNumber(); });
-    loadCatalog();
     initAdmin();
+    loadCatalog();
+    if (PRINT_JOB) {
+      document.title = PRINT_JOB.no;
+      runPrintJob();
+    } else {
+      loadData();
+      if (!$('items').children.length) defaults.forEach(x => addItem(x));
+      refreshCompanyList();
+      loadCompanyFromSheet().then(() => { refreshCompanyList(); fetchNextNumber(); });
+    }
     document.body.classList.add('print-invoice');
     render();
     if (window.location.hash) {

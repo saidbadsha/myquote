@@ -12,6 +12,8 @@ function makeEnv(seed) {
       name, rows,
       getLastRow: () => rows.length,
       getMaxRows: () => Math.max(rows.length, 1000),
+      getMaxColumns: () => 26,
+      insertColumnsAfter() {},
       appendRow(r) { rows.push(r.map(conv)); },
       getRange(r, c, nr = 1, nc = 1) {
         return {
