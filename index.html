@@ -99,6 +99,61 @@
       transform: scale(1.1)
     }
 
+    .admin-only {
+      display: none
+    }
+
+    body.is-admin .admin-only {
+      display: block
+    }
+
+    .admin-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11px;
+      color: #667085;
+      margin-bottom: 10px
+    }
+
+    .admin-bar a,
+    .admin-bar button {
+      font-size: 11px;
+      font-weight: 600;
+      color: #0369a1;
+      background: none;
+      border: 0;
+      padding: 0;
+      cursor: pointer;
+      text-decoration: none
+    }
+
+    .form-total {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-top: 10px;
+      padding: 9px 12px;
+      border-radius: 9px;
+      background: #f2f4f7;
+      font-size: 12px;
+      color: #344054
+    }
+
+    .form-total b {
+      font-size: 15px;
+      color: #101828
+    }
+
+    .internal-box {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border: 1px dashed #f04438;
+      border-radius: 10px;
+      background: #fffbfa
+    }
+
     .panel {
       background: #fff;
       border-right: 1px solid var(--line);
@@ -892,7 +947,12 @@
       }
 
       .panel,
-      .toolbar {
+      .toolbar,
+      .resizer,
+      .resizer-toggle,
+      .admin-only,
+      .admin-bar,
+      .toast-container {
         display: none !important
       }
 
@@ -2081,6 +2141,10 @@
     <aside class="panel">
       <h1>Invoice &amp; Quotation Maker</h1>
       <div class="sub">Create invoices &amp; quotations • Google Sheet sync • Export JPEG/PDF</div>
+      <div class="admin-bar">
+        <span id="adminState">Not signed in as admin</span>
+        <span><a id="adminLink" href="admin.html">Admin login</a><button id="adminLogoutBtn" style="display:none" onclick="adminLogout()">Logout</button></span>
+      </div>
       <div class="tabs">
         <button class="tab active" onclick="showTab('create',this)">Create</button>
         <button class="tab" onclick="showTab('fetch',this)">Fetch</button>
@@ -2105,7 +2169,8 @@
           </div>
           <div class="section-body" id="companyBody">
             <div class="grid">
-              <div class="full"><label>Company Name</label><input id="company" value="YOUR COMPANY NAME" onchange="checkCompanyTemplateOnNameChange()"></div>
+              <div class="full"><label>Saved Companies</label><select id="companyPicker" onchange="pickCompany(this.value)"><option value="">— switch company —</option></select></div>
+              <div class="full"><label>Company Name</label><input id="company" value="YOUR COMPANY NAME" onchange="checkCompanyTemplateOnNameChange();onCompanyNameChange()"></div>
               <div><label>Phone</label><input id="phone" value="+91 00000 00000"></div>
               <div><label>Email</label><input id="email" value="info@example.com"></div>
               <div class="full"><label>Address</label><textarea id="address">Your address, City, Maharashtra</textarea>
@@ -2181,6 +2246,13 @@
             </table>
           </div>
           <button class="btn secondary" style="width:100%;margin-top:9px" onclick="addItem()">+ Add Item</button>
+          <div class="form-total"><span id="formTotalLabel">Total (incl. tax)</span><b id="formTotal">0.00</b></div>
+          <div class="internal-box admin-only" id="internalBox">
+            <label style="color:#b42318;display:flex;align-items:center;gap:4px;">🔒 Internal Note <span style="font-weight:normal;font-size:10px;color:#667085;">(Admin only — never printed, exported or shown to the customer)</span></label>
+            <textarea id="internalNote" placeholder="Internal notes, supplier costs, reference numbers..."></textarea>
+            <label style="margin-top:8px">Payment Status</label>
+            <select id="paymentStatus"><option>Pending</option><option>Partial</option><option>Paid</option></select>
+          </div>
           <div class="hint">Item name type karte waqt catalog ke matching items suggestions me aayenge. Saved rate
             auto-fill hoga.</div>
         </div>
@@ -2190,10 +2262,6 @@
           <label>Public Notes (Appears on Quotation / Invoice)</label>
           <textarea id="notes">Installation and other charges, if applicable, will be discussed separately.
 Quotation is valid for the period mentioned above.</textarea>
-          <div style="margin-top:10px;">
-            <label style="color:#b42318;display:flex;align-items:center;gap:4px;">🔒 Internal Note <span style="font-weight:normal;font-size:10px;color:#667085;">(Admin Only — Never Printed or Displayed on Quote)</span></label>
-            <textarea id="internalNote" placeholder="Enter internal administrative notes, supplier costs, or internal reference numbers..."></textarea>
-          </div>
         </div>
 
         <div class="section">
@@ -2304,6 +2372,14 @@ Quotation is valid for the period mentioned above.</textarea>
             tab kholen.</div>
         </div>
         <div class="section">
+          <h2>Document Numbering</h2>
+          <div class="hint" style="margin:0 0 8px">Format for <b id="numCompanyName">this company</b>. Tokens: <code>{YYYY}</code> <code>{YY}</code> <code>{MM}</code> <code>{SEQ}</code> / <code>{SEQ:3}</code> (zero-padded). Existing document numbers never change.</div>
+          <label>Invoice number format</label><input id="invoiceFormat" value="INV-{YYYY}-{SEQ:3}" oninput="previewNumbering()">
+          <label style="margin-top:8px">Quotation number format</label><input id="quotationFormat" value="QT-{YYYY}-{SEQ:3}" oninput="previewNumbering()">
+          <div class="status" id="numberingPreview">Next numbers: —</div>
+          <button class="btn btn-save" style="width:100%;margin-top:9px" onclick="saveNumbering()">Save Numbering Format</button>
+        </div>
+        <div class="section">
           <h2>Document Design</h2>
           <label>Document Theme Color</label>
           <div class="color-row"><input id="quoteColor" type="color" value="#111827"><input id="quoteColorText"
@@ -2354,10 +2430,11 @@ Quotation is valid for the period mentioned above.</textarea>
 
   <script>
     const $ = id => document.getElementById(id);
-    const fields = ['company', 'phone', 'email', 'address', 'gst', 'currency', 'client', 'clientMobile', 'quoteNo', 'date', 'validity', 'tax', 'profit', 'mode', 'simpleMode', 'notes', 'internalNote', 'quoteColor'];
+    const fields = ['company', 'phone', 'email', 'address', 'gst', 'currency', 'client', 'clientMobile', 'quoteNo', 'date', 'validity', 'tax', 'profit', 'mode', 'simpleMode', 'notes', 'internalNote', 'paymentStatus', 'quoteColor'];
     const defaults = [['4 channel DVR', 1, 2400, ''], ['2MP Camera Dome', 4, 750, ''], ['SMPS', 1, 350, ''], ['Wire Bundle', 1, 1000, ''], ['BNC, DC, PVC Box', 1, 360, ''], ['500 GB HDD', 1, 1750, '']];
     let logoData = localStorage.getItem('quotationLogo') || '';
     let currentDocType = 'invoice';
+    let docIsNew = true;   // false once the form holds a saved/loaded document
     let selectedTemplate = localStorage.getItem('quotationTemplate') || 'corporate';
 
     // ─── Toast Notifications ───
@@ -2454,7 +2531,7 @@ Quotation is valid for the period mentioned above.</textarea>
     function calc(cost, p) { return $('mode').value === 'margin' ? (p >= 100 ? cost : cost / (1 - p / 100)) : cost * (1 + p / 100) }
 
     // ─── Document Type Selector ───
-    function setDocType(type) {
+    function setDocType(type, skipNumber = false) {
       currentDocType = type;
       const invBtn = $('docTypeInvoice'), qtBtn = $('docTypeQuotation'), glider = $('docTypeGlider');
       if (type === 'invoice') {
@@ -2484,7 +2561,7 @@ Quotation is valid for the period mentioned above.</textarea>
         document.body.classList.remove('print-invoice');
         document.body.classList.add('print-quotation');
       }
-      fetchNextNumber();
+      if (!skipNumber) fetchNextNumber();
       render();
     }
 
@@ -2541,19 +2618,42 @@ Quotation is valid for the period mentioned above.</textarea>
     }
 
     // ─── Auto-Numbering ───
+    let numberReq = 0;
     async function fetchNextNumber() {
+      docIsNew = true;
+      const req = ++numberReq;
       try {
-        const j = await api('getNextNumber', { docType: currentDocType });
-        if (j.ok && j.docNo) { $('quoteNo').value = j.docNo; }
+        const j = await api('getNextNumber', { docType: currentDocType, company: $('company').value.trim() });
+        if (req === numberReq && docIsNew && j.ok && j.docNo) { $('quoteNo').value = j.docNo; render(); }
       } catch (e) {
-        // Offline fallback
+        // Offline fallback (server assigns the final number on save)
+        if (req !== numberReq) return;
         const year = new Date().getFullYear();
         const prefix = currentDocType === 'invoice' ? 'INV' : 'QT';
-        const key = 'lastNum_' + currentDocType + '_' + year;
-        let num = parseInt(localStorage.getItem(key) || '0') + 1;
-        localStorage.setItem(key, num);
-        $('quoteNo').value = prefix + '-' + year + '-' + String(num).padStart(3, '0');
+        $('quoteNo').value = prefix + '-' + year + '-001';
+        render();
       }
+    }
+
+    // ─── Admin session (set by admin.html; enables the Internal Note box) ───
+    const ADMIN_TOKEN_KEY = 'qm_admin_token';
+    function adminToken() { try { return localStorage.getItem(ADMIN_TOKEN_KEY) || ''; } catch (e) { return ''; } }
+    function setAdminUi(on, name) {
+      document.body.classList.toggle('is-admin', !!on);
+      $('adminState').textContent = on ? 'Admin: ' + name : 'Not signed in as admin';
+      $('adminLink').style.display = on ? 'none' : '';
+      $('adminLogoutBtn').style.display = on ? '' : 'none';
+    }
+    async function initAdmin() {
+      if (!adminToken()) return setAdminUi(false);
+      try { const j = await api('adminMe'); setAdminUi(true, j.username); }
+      catch (e) { try { localStorage.removeItem(ADMIN_TOKEN_KEY); } catch (_) { } setAdminUi(false); }
+    }
+    async function adminLogout() {
+      try { await api('adminLogout'); } catch (e) { }
+      try { localStorage.removeItem(ADMIN_TOKEN_KEY); } catch (e) { }
+      $('internalNote').value = '';
+      setAdminUi(false);
     }
 
     // ─── Items ───
@@ -2639,6 +2739,7 @@ Quotation is valid for the period mentioned above.</textarea>
       const taxP = +$('tax').value || 0, tax = subtotal * taxP / 100, total = subtotal + tax;
       const simple = $('simpleMode').value === 'true';
       const docLabel = currentDocType === 'invoice' ? 'INVOICE' : 'QUOTATION';
+      if ($('formTotal')) $('formTotal').textContent = money(total);
 
       const rows = simple
         ? it.map((x, i) => `<tr><td class="center">${i + 1}</td><td>${esc(x.name)}</td><td class="center">${x.q}</td></tr>`).join('')
@@ -2679,7 +2780,7 @@ Quotation is valid for the period mentioned above.</textarea>
     // ─── API ───
     async function api(action, payload = {}) {
       const url = $('sheetUrl').value.trim(); if (!url) throw new Error('Google Apps Script Web App URL missing in Settings.');
-      const body = { action, ...payload };
+      const body = { action, ...payload }; const tk = adminToken(); if (tk) body.token = tk;
       const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
       const text = await res.text(); let j; try { j = JSON.parse(text) } catch (e) { throw new Error('Invalid response from Apps Script.') }; if (!j.ok) throw new Error(j.error || 'Sheet operation failed'); return j;
     }
@@ -2703,6 +2804,8 @@ Quotation is valid for the period mentioned above.</textarea>
         simpleMode: $('simpleMode').value,
         notes: $('notes').value,
         internalNote: $('internalNote') ? $('internalNote').value : '',
+        paymentStatus: $('paymentStatus') ? $('paymentStatus').value : 'Pending',
+        isNew: docIsNew,
         template: selectedTemplate,
         items: getItems()
       };
@@ -2722,11 +2825,13 @@ Quotation is valid for the period mentioned above.</textarea>
       try {
         const j = await api('saveDocument', documentPayload());
         $('syncStatus').textContent = 'Saved to Google Sheet: ' + (j.message || 'Success');
-        // Auto-save company details
-        saveCompanyToSheet();
-        // Re-fetch company details to stay in sync with the single source of truth
-        loadCompanyFromSheet();
-        showToast((currentDocType === 'invoice' ? 'Invoice' : 'Quotation') + ' saved successfully');
+        if (j.docNo) $('quoteNo').value = j.docNo;
+        docIsNew = false;
+        render();
+        // Auto-save company details (numbering formats are preserved server-side)
+        saveCompanyToSheet().then(refreshCompanyList);
+        const label = currentDocType === 'invoice' ? 'Invoice' : 'Quotation';
+        showToast(j.renumbered ? label + ' number was already taken — saved as ' + j.docNo : label + ' saved successfully');
       } catch (e) {
         $('syncStatus').textContent = 'Save failed: ' + e.message;
         showToast('Save failed. Please try again.', 'error');
@@ -2750,11 +2855,12 @@ Quotation is valid for the period mentioned above.</textarea>
       }
     }
 
-    async function loadCompanyFromSheet() {
+    async function loadCompanyFromSheet(name) {
       try {
-        const j = await api('getCompany');
+        const j = await api('getCompany', name ? { name } : {});
         if (j.ok && j.company) {
           const c = j.company;
+          applyNumbering(c);
           if (c.name) $('company').value = c.name;
           if (c.phone) $('phone').value = c.phone;
           if (c.email) $('email').value = c.email;
@@ -2769,6 +2875,54 @@ Quotation is valid for the period mentioned above.</textarea>
           }
         }
       } catch (e) { }
+    }
+
+    // ─── Companies & company-wise numbering ───
+    function applyNumbering(c) {
+      $('invoiceFormat').value = c.invoiceFormat || 'INV-{YYYY}-{SEQ:3}';
+      $('quotationFormat').value = c.quotationFormat || 'QT-{YYYY}-{SEQ:3}';
+      previewNumbering();
+    }
+    function previewNumbering() {
+      const d = new Date(), yyyy = String(d.getFullYear()), mm = ('0' + (d.getMonth() + 1)).slice(-2);
+      const ex = f => String(f).replace(/\{YYYY\}/g, yyyy).replace(/\{YY\}/g, yyyy.slice(-2)).replace(/\{MM\}/g, mm)
+        .replace(/\{SEQ(?::(\d+))?\}/g, (m, w) => '1'.padStart(+w || 0, '0'));
+      $('numCompanyName').textContent = $('company').value || 'this company';
+      $('numberingPreview').textContent = 'First numbers: ' + ex($('invoiceFormat').value) + '  ·  ' + ex($('quotationFormat').value);
+    }
+    async function saveNumbering() {
+      const name = $('company').value.trim();
+      if (!name) { showToast('Enter a company name first', 'error'); return; }
+      try {
+        await api('saveCompany', { company: {
+          name, phone: $('phone').value, email: $('email').value, address: $('address').value, gst: $('gst').value,
+          currency: $('currency').value, template: selectedTemplate,
+          invoiceFormat: $('invoiceFormat').value.trim(), quotationFormat: $('quotationFormat').value.trim()
+        } });
+        showToast('Numbering format saved');
+        await refreshCompanyList();
+        fetchNextNumber();
+      } catch (e) { showToast(e.message, 'error'); }
+    }
+    async function refreshCompanyList() {
+      try {
+        const j = await api('getCompanies');
+        window.companyList = j.companies || [];
+        const cur = $('company').value.trim().toLowerCase();
+        $('companyPicker').innerHTML = '<option value="">— switch company —</option>' + window.companyList.map(c =>
+          `<option value="${esc(c.name)}"${c.name.toLowerCase() === cur ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
+      } catch (e) { }
+    }
+    async function pickCompany(name) {
+      if (!name) return;
+      await loadCompanyFromSheet(name);
+      render();
+      fetchNextNumber();
+    }
+    function onCompanyNameChange() {
+      const c = (window.companyList || []).find(x => x.name.toLowerCase() === $('company').value.trim().toLowerCase());
+      applyNumbering(c || {});
+      fetchNextNumber();
     }
 
     async function testSheet() {
@@ -2788,6 +2942,8 @@ Quotation is valid for the period mentioned above.</textarea>
       $('tax').value = '0';
       $('profit').value = '20';
       $('simpleMode').value = 'false';
+      $('internalNote').value = '';
+      $('paymentStatus').value = 'Pending';
       $('notes').value = 'Installation and other charges, if applicable, will be discussed separately.\nQuotation is valid for the period mentioned above.';
       // Fetch next number
       fetchNextNumber();
@@ -2818,7 +2974,11 @@ Quotation is valid for the period mentioned above.</textarea>
 
     function loadDocument(r) {
       const docType = r.docType || 'quotation';
-      setDocType(docType);
+      setDocType(docType, true);
+      numberReq++;            // drop any in-flight "next number" response
+      docIsNew = false;
+      $('internalNote').value = r.internalNote || '';
+      $('paymentStatus').value = r.paymentStatus || 'Pending';
       const keys = ['company', 'phone', 'email', 'address', 'gst', 'client', 'clientMobile', 'date', 'validity', 'tax', 'profit', 'mode', 'simpleMode', 'notes'];
       keys.forEach(k => { if (r[k] != null && $(k)) $(k).value = r[k] });
       // Use docNo or quoteNo
@@ -2865,9 +3025,9 @@ Quotation is valid for the period mentioned above.</textarea>
     loadData();
     if (!$('items').children.length) defaults.forEach(x => addItem(x));
     $('simpleMode').value = 'false';
-    loadCompanyFromSheet();
+    loadCompanyFromSheet().then(() => { refreshCompanyList(); fetchNextNumber(); });
     loadCatalog();
-    fetchNextNumber();
+    initAdmin();
     document.body.classList.add('print-invoice');
     render();
     if (window.location.hash) {

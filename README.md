@@ -22,7 +22,9 @@ A professional invoicing and quotation system with Google Sheets sync, auto-numb
 | File | Description |
 |------|-------------|
 | `index.html` | Main application (open in browser) |
-| `google_sheet_apps_script_v2.gs` | Google Apps Script backend for Sheets |
+| `admin.html` | Admin login + dashboard (invoices & quotations) |
+| `google_sheet_apps_script_v2.gs` | Google Apps Script backend for Sheets (v4: numbering, admin auth) |
+| `tests/` | `node tests/backend.test.js` runs the backend against an in-memory Sheets mock |
 | `QUOTATION_MAKER_COMPLETE_GUIDE.txt` | Complete setup and usage guide |
 
 ## Quick Start
@@ -40,6 +42,16 @@ A professional invoicing and quotation system with Google Sheets sync, auto-numb
 3. Paste contents of `google_sheet_apps_script_v2.gs`
 4. Deploy as Web App (Execute as: Me, Access: Anyone)
 5. Copy the `/exec` URL and paste in **Settings**
+
+### Admin setup (one time)
+
+1. In the Apps Script editor run **`setupAdmin`** and read the password from the Execution log (shown once, never stored in plain text; re-run to rotate it and sign out all sessions).
+2. Sign in at `admin.html` with `admin@email.com`.
+3. Optional: set Script Property `ADMIN_COMPANIES` to `Company A|Company B` to limit the admin to those companies (default `*` = all).
+
+### Company-wise numbering
+
+**Settings → Document Numbering** sets invoice/quotation formats per company, e.g. `ACM/{YY}{MM}/{SEQ:4}`. Default stays `INV-{YYYY}-{SEQ:3}` / `QT-{YYYY}-{SEQ:3}`. Existing numbers are never changed; the server assigns the final number on save under a lock.
 
 The script auto-creates: `CompanyDetails`, `Invoices`, `Quotations`, `ItemCatalog`, `DocCounters`
 

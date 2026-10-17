@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Admin — Invoice &amp; Quotation Maker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f4f6f9; --card: #fff; --text: #101828; --muted: #667085; --line: #e4e7ec;
+      --brand: #0369a1; --brand-d: #075985; --ok: #067647; --ok-bg: #ecfdf3; --warn: #b54708; --warn-bg: #fffaeb;
+      --bad: #b42318; --bad-bg: #fef3f2; --inv: #0369a1; --qt: #7c3aed;
+    }
+    * { box-sizing: border-box }
+    body { margin: 0; font-family: Inter, system-ui, Arial, sans-serif; background: var(--bg); color: var(--text); font-size: 14px }
+    [hidden] { display: none !important }
+    button, input, select, textarea { font: inherit; color: inherit }
+    .btn { border: 0; border-radius: 9px; padding: 9px 14px; font-weight: 600; cursor: pointer; background: var(--brand); color: #fff }
+    .btn:hover { background: var(--brand-d) }
+    .btn:disabled { opacity: .6; cursor: default }
+    .btn.ghost { background: #fff; color: var(--text); border: 1px solid var(--line) }
+    .btn.ghost:hover { background: #f9fafb }
+    input, select, textarea { width: 100%; border: 1px solid #d0d5dd; border-radius: 9px; padding: 9px 11px; background: #fff }
+    input:focus, select:focus, textarea:focus { outline: 2px solid #b9e0f5; border-color: var(--brand) }
+    label { display: block; font-size: 12px; font-weight: 600; color: #344054; margin: 0 0 5px }
+
+    /* Login */
+    .login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 16px }
+    .login { width: 100%; max-width: 380px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 28px; box-shadow: 0 8px 30px rgba(16, 24, 40, .08) }
+    .login h1 { margin: 0 0 4px; font-size: 20px }
+    .login p { margin: 0 0 20px; color: var(--muted) }
+    .login .row { margin-bottom: 14px }
+    .pw { position: relative }
+    .pw button { position: absolute; right: 6px; top: 6px; border: 0; background: none; color: var(--muted); cursor: pointer; padding: 4px 8px; font-size: 12px; font-weight: 600 }
+    .err { background: var(--bad-bg); color: var(--bad); border-radius: 9px; padding: 9px 11px; margin-bottom: 14px; font-size: 13px }
+    .conn { margin-top: 14px; text-align: center; font-size: 12px }
+    .conn a { color: var(--muted); cursor: pointer }
+
+    /* Dashboard */
+    header.top { background: #101828; color: #fff; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 20px; flex-wrap: wrap }
+    header.top h1 { margin: 0; font-size: 16px }
+    header.top .who { font-size: 12px; color: #98a2b3 }
+    header.top .acts { display: flex; gap: 8px; align-items: center; flex-wrap: wrap }
+    header.top .btn.ghost { background: transparent; color: #fff; border-color: #475467; padding: 7px 12px }
+    header.top .btn.ghost:hover { background: #1d2939 }
+    main { max-width: 1280px; margin: 0 auto; padding: 18px 16px 40px }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 16px }
+    .stat { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px }
+    .stat .k { font-size: 12px; color: var(--muted); font-weight: 600 }
+    .stat .v { font-size: 22px; font-weight: 700; margin-top: 4px; letter-spacing: -.01em }
+    .stat .s { font-size: 12px; color: var(--muted); margin-top: 2px }
+    .stat.paid .v { color: var(--ok) } .stat.out .v { color: var(--warn) }
+    .panel { background: var(--card); border: 1px solid var(--line); border-radius: 14px }
+    .filters { display: grid; grid-template-columns: 2fr repeat(3, 1fr) repeat(2, 1fr) auto; gap: 10px; padding: 14px; align-items: end }
+    .tablewrap { overflow-x: auto; border-top: 1px solid var(--line) }
+    table { width: 100%; border-collapse: collapse; min-width: 900px }
+    th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding: 10px 14px; background: #f9fafb; white-space: nowrap; user-select: none }
+    th.sort { cursor: pointer } th.sort:hover { color: var(--text) }
+    td { padding: 11px 14px; border-top: 1px solid var(--line); vertical-align: top }
+    tbody tr { cursor: pointer } tbody tr:hover { background: #f9fafb }
+    td.num, th.num { text-align: right; white-space: nowrap }
+    .chip { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 700 }
+    .chip.invoice { background: #e0f2fe; color: var(--inv) } .chip.quotation { background: #ede9fe; color: var(--qt) }
+    .chip.Paid { background: var(--ok-bg); color: var(--ok) } .chip.Pending { background: var(--warn-bg); color: var(--warn) } .chip.Partial { background: #eff8ff; color: #175cd3 }
+    .note { color: var(--muted); max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+    .empty { padding: 40px 16px; text-align: center; color: var(--muted) }
+    .pager { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border-top: 1px solid var(--line); gap: 10px; flex-wrap: wrap; color: var(--muted); font-size: 13px }
+    .pager .btns { display: flex; gap: 6px }
+    .pager .btn { padding: 6px 12px }
+    .loading { opacity: .5; pointer-events: none }
+
+    /* Drawer */
+    .scrim { position: fixed; inset: 0; background: rgba(16, 24, 40, .45); z-index: 40 }
+    .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 100%); background: #fff; z-index: 41; overflow-y: auto; box-shadow: -8px 0 30px rgba(16, 24, 40, .15) }
+    .drawer .hd { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: #fff }
+    .drawer .hd h2 { margin: 0; font-size: 16px }
+    .drawer .bd { padding: 18px 20px }
+    .kv { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; margin-bottom: 18px }
+    .kv .k { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em }
+    .kv .v { margin-top: 2px; word-break: break-word }
+    .kv .full { grid-column: 1 / -1 }
+    .items { font-size: 13px; min-width: 0; margin-bottom: 18px }
+    .items th, .items td { padding: 7px 8px }
+    .items tbody tr { cursor: default }
+    .internal { border: 1px dashed #f04438; background: #fffbfa; border-radius: 12px; padding: 12px 14px; margin-bottom: 14px }
+    .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #101828; color: #fff; padding: 10px 16px; border-radius: 10px; z-index: 60; font-size: 13px }
+
+    @media (max-width: 1000px) { .filters { grid-template-columns: 1fr 1fr 1fr } .filters .wide { grid-column: 1 / -1 } }
+    @media (max-width: 720px) {
+      .filters { grid-template-columns: 1fr 1fr }
+      table, thead, tbody, tr, td { display: block; min-width: 0 }
+      thead { display: none }
+      tbody tr { padding: 12px 14px; border-top: 1px solid var(--line) }
+      td { border: 0; padding: 2px 0 }
+      td.num { text-align: left }
+      td[data-l]::before { content: attr(data-l) ' · '; color: var(--muted); font-size: 11px; font-weight: 600 }
+      .note { max-width: none; white-space: normal }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Login -->
+  <div class="login-wrap" id="loginView" hidden>
+    <form class="login" id="loginForm" autocomplete="on">
+      <h1>Admin sign in</h1>
+      <p>Invoice &amp; Quotation Maker Pro</p>
+      <div class="err" id="loginErr" hidden></div>
+      <div class="row"><label for="user">Username</label><input id="user" type="email" autocomplete="username" required autofocus></div>
+      <div class="row"><label for="pass">Password</label>
+        <div class="pw"><input id="pass" type="password" autocomplete="current-password" required><button type="button" id="togglePw">Show</button></div>
+      </div>
+      <button class="btn" id="loginBtn" style="width:100%" type="submit">Sign in</button>
+      <div class="conn"><a id="connLink">Connection settings</a></div>
+    </form>
+  </div>
+
+  <!-- Dashboard (only revealed after the server confirms the session) -->
+  <div id="dashView" hidden>
+    <header class="top">
+      <div><h1>Admin Dashboard</h1><div class="who" id="who"></div></div>
+      <div class="acts">
+        <a class="btn ghost" href="index.html" style="text-decoration:none">Open App</a>
+        <button class="btn ghost" id="refreshBtn">Refresh</button>
+        <button class="btn ghost" id="logoutBtn">Logout</button>
+      </div>
+    </header>
+    <main>
+      <section class="cards" id="cards"></section>
+      <section class="panel">
+        <div class="filters">
+          <div class="wide"><label>Search</label><input id="fQ" placeholder="Doc no, company, client, mobile, internal note…"></div>
+          <div><label>Type</label><select id="fType"><option value="">All</option><option value="invoice">Invoices</option><option value="quotation">Quotations</option></select></div>
+          <div><label>Company</label><select id="fCompany"><option value="">All</option></select></div>
+          <div><label>Payment</label><select id="fStatus"><option value="">All</option><option>Pending</option><option>Partial</option><option>Paid</option></select></div>
+          <div><label>From</label><input id="fFrom" type="date"></div>
+          <div><label>To</label><input id="fTo" type="date"></div>
+          <div><button class="btn ghost" id="clearBtn" style="width:100%">Clear</button></div>
+        </div>
+        <div class="tablewrap" id="tableWrap">
+          <table>
+            <thead><tr>
+              <th>Type</th><th class="sort" data-s="docNo">Doc No</th><th class="sort" data-s="date">Date</th>
+              <th class="sort" data-s="company">Company</th><th class="sort" data-s="client">Customer</th>
+              <th class="sort num" data-s="total">Amount</th><th class="sort" data-s="paymentStatus">Payment</th><th>Internal note</th>
+            </tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+          <div class="empty" id="empty" hidden>No records match these filters.</div>
+        </div>
+        <div class="pager">
+          <span id="pagerInfo"></span>
+          <span class="btns"><select id="fSize" style="width:auto"><option>10</option><option selected>25</option><option>50</option><option>100</option></select>
+            <button class="btn ghost" id="prevBtn">‹ Prev</button><button class="btn ghost" id="nextBtn">Next ›</button></span>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="drawerRoot"></div>
+
+  <script>
+    // The Apps Script URL is not a secret (it is also used by index.html); it can be overridden per browser.
+    const DEFAULT_API = 'https://script.google.com/macros/s/AKfycbxu4GoFsE9Mwb3pHzP37UHIV8GbKfA2EvQBh3F0KBF4-z7c4yDUlamsm4MSfdjTmQfc/exec';
+    const TOKEN_KEY = 'qm_admin_token', API_KEY = 'qm_api_url';
+    const $ = id => document.getElementById(id);
+    const store = {
+      get: k => { try { return localStorage.getItem(k) || '' } catch (e) { return '' } },
+      set: (k, v) => { try { localStorage.setItem(k, v) } catch (e) { } },
+      del: k => { try { localStorage.removeItem(k) } catch (e) { } }
+    };
+    const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const money = n => '₹ ' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const apiUrl = () => store.get(API_KEY) || DEFAULT_API;
+
+    class AuthError extends Error { }
+    async function api(action, payload = {}) {
+      const res = await fetch(apiUrl(), { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action, token: store.get(TOKEN_KEY), ...payload }) });
+      let j; try { j = JSON.parse(await res.text()) } catch (e) { throw new Error('Invalid response from server.') }
+      if (j.authRequired) throw new AuthError(j.error);
+      if (!j.ok) throw new Error(j.error || 'Request failed');
+      return j;
+    }
+
+    function toast(msg) {
+      const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t);
+      setTimeout(() => t.remove(), 2600);
+    }
+
+    // ── Views / auth ──
+    function showLogin(msg) {
+      $('dashView').hidden = true; $('loginView').hidden = false; closeDrawer();
+      $('pass').value = '';
+      $('loginErr').hidden = !msg; $('loginErr').textContent = msg || '';
+    }
+    async function enterDashboard(username) {
+      $('who').textContent = username;
+      $('loginView').hidden = true; $('dashView').hidden = false;
+      await load();
+    }
+    async function boot() {
+      if (!store.get(TOKEN_KEY)) return showLogin();
+      try { const j = await api('adminMe'); await enterDashboard(j.username); }
+      catch (e) { store.del(TOKEN_KEY); showLogin(e instanceof AuthError ? 'Session expired. Please sign in again.' : e.message); }
+    }
+    $('loginForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const b = $('loginBtn'); b.disabled = true; b.textContent = 'Signing in…'; $('loginErr').hidden = true;
+      try {
+        const j = await api('adminLogin', { username: $('user').value.trim(), password: $('pass').value, token: '' });
+        store.set(TOKEN_KEY, j.token);
+        await enterDashboard(j.username);
+      } catch (err) { showLogin(err.message); }
+      finally { b.disabled = false; b.textContent = 'Sign in'; }
+    });
+    $('togglePw').onclick = () => { const p = $('pass'); const show = p.type === 'password'; p.type = show ? 'text' : 'password'; $('togglePw').textContent = show ? 'Hide' : 'Show'; };
+    $('connLink').onclick = () => {
+      const v = prompt('Apps Script Web App URL', apiUrl());
+      if (v && /^https:\/\/script\.google\.com\//.test(v.trim())) { store.set(API_KEY, v.trim()); toast('Saved'); }
+      else if (v) alert('Must be an https://script.google.com/… URL');
+    };
+    $('logoutBtn').onclick = async () => {
+      try { await api('adminLogout') } catch (e) { }
+      store.del(TOKEN_KEY); showLogin('Signed out.');
+    };
+
+    // ── Data ──
+    const state = { page: 1, sort: 'date', dir: 'desc' };
+    let companiesLoaded = false, reqId = 0;
+
+    function query() {
+      return { q: $('fQ').value.trim(), docType: $('fType').value, company: $('fCompany').value, status: $('fStatus').value,
+        from: $('fFrom').value, to: $('fTo').value, pageSize: +$('fSize').value, page: state.page, sort: state.sort, dir: state.dir };
+    }
+    async function load() {
+      const id = ++reqId;
+      $('tableWrap').classList.add('loading');
+      try {
+        const j = await api('adminList', query());
+        if (id !== reqId) return;
+        renderCards(j.summary, j.total);
+        if (!companiesLoaded || j.companies.length !== $('fCompany').options.length - 1) {
+          const cur = $('fCompany').value;
+          $('fCompany').innerHTML = '<option value="">All</option>' + j.companies.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+          $('fCompany').value = cur; companiesLoaded = true;
+        }
+        renderRows(j);
+      } catch (e) {
+        if (e instanceof AuthError) { store.del(TOKEN_KEY); showLogin('Session expired. Please sign in again.'); }
+        else { $('rows').innerHTML = ''; $('empty').hidden = false; $('empty').textContent = 'Could not load data: ' + e.message; }
+      } finally { if (id === reqId) $('tableWrap').classList.remove('loading'); }
+    }
+
+    function renderCards(s, total) {
+      const card = (k, v, sub, cls = '') => `<div class="stat ${cls}"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${sub}</div></div>`;
+      $('cards').innerHTML =
+        card('Total invoiced', money(s.invoiceTotal), s.invoiceCount + ' invoices') +
+        card('Paid', money(s.paidTotal), s.paidCount + ' invoices', 'paid') +
+        card('Outstanding', money(s.outstandingTotal), s.outstandingCount + ' pending / partial', 'out') +
+        card('Quotations value', money(s.quotationTotal), s.quotationCount + ' quotations') +
+        card('Matching records', total, 'with current filters');
+    }
+
+    function renderRows(j) {
+      $('empty').hidden = j.rows.length > 0; $('empty').textContent = 'No records match these filters.';
+      $('rows').innerHTML = j.rows.map(r => `<tr data-t="${r.docType}" data-n="${esc(r.docNo)}">
+        <td data-l="Type"><span class="chip ${r.docType}">${r.docType === 'invoice' ? 'INV' : 'QT'}</span></td>
+        <td data-l="No"><b>${esc(r.docNo)}</b></td><td data-l="Date">${esc(r.date)}</td><td data-l="Company">${esc(r.company)}</td>
+        <td data-l="Customer">${esc(r.client)}<div style="color:var(--muted);font-size:12px">${esc(r.clientMobile)}</div></td>
+        <td class="num" data-l="Amount"><b>${money(r.total)}</b></td>
+        <td data-l="Payment"><span class="chip ${esc(r.paymentStatus)}">${esc(r.paymentStatus)}</span></td>
+        <td data-l="Note"><div class="note" title="${esc(r.internalNote)}">${esc(r.internalNote) || '—'}</div></td></tr>`).join('');
+      const from = j.total ? (j.page - 1) * j.pageSize + 1 : 0, to = Math.min(j.total, j.page * j.pageSize);
+      $('pagerInfo').textContent = `${from}–${to} of ${j.total}  ·  page ${j.page}/${j.pages}`;
+      $('prevBtn').disabled = j.page <= 1; $('nextBtn').disabled = j.page >= j.pages;
+      state.pages = j.pages;
+      document.querySelectorAll('th.sort').forEach(th => th.textContent = th.textContent.replace(/ [▲▼]$/, '') + (th.dataset.s === state.sort ? (state.dir === 'asc' ? ' ▲' : ' ▼') : ''));
+    }
+
+    // ── Filter wiring ──
+    let timer;
+    const refilter = () => { state.page = 1; load(); };
+    $('fQ').addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(refilter, 300); });
+    ['fType', 'fCompany', 'fStatus', 'fFrom', 'fTo', 'fSize'].forEach(id => $(id).addEventListener('change', refilter));
+    $('clearBtn').onclick = () => { ['fQ', 'fType', 'fCompany', 'fStatus', 'fFrom', 'fTo'].forEach(id => $(id).value = ''); refilter(); };
+    $('refreshBtn').onclick = () => load();
+    $('prevBtn').onclick = () => { if (state.page > 1) { state.page--; load(); } };
+    $('nextBtn').onclick = () => { if (state.page < state.pages) { state.page++; load(); } };
+    document.querySelectorAll('th.sort').forEach(th => th.onclick = () => {
+      const s = th.dataset.s; state.dir = state.sort === s && state.dir === 'desc' ? 'asc' : 'desc'; state.sort = s; refilter();
+    });
+    $('rows').addEventListener('click', e => { const tr = e.target.closest('tr'); if (tr) openDrawer(tr.dataset.t, tr.dataset.n); });
+
+    // ── Record details ──
+    function closeDrawer() { $('drawerRoot').innerHTML = ''; }
+    async function openDrawer(type, no) {
+      $('drawerRoot').innerHTML = '<div class="scrim" onclick="closeDrawer()"></div><aside class="drawer"><div class="hd"><h2>Loading…</h2></div></aside>';
+      try {
+        const { doc: d } = await api('adminGet', { docType: type, docNo: no });
+        const items = (d.items || []).map((x, i) => `<tr><td>${i + 1}</td><td>${esc(x.name)}</td><td class="num">${esc(x.q)}</td><td class="num">${money(x.rate)}</td><td class="num">${money(x.amount)}</td></tr>`).join('');
+        const kv = (k, v, full) => `<div class="${full ? 'full' : ''}"><div class="k">${k}</div><div class="v">${esc(v) || '—'}</div></div>`;
+        $('drawerRoot').innerHTML = `<div class="scrim" onclick="closeDrawer()"></div><aside class="drawer">
+          <div class="hd"><h2><span class="chip ${d.docType}">${d.docType === 'invoice' ? 'INVOICE' : 'QUOTATION'}</span> ${esc(d.docNo)}</h2><button class="btn ghost" onclick="closeDrawer()">Close</button></div>
+          <div class="bd">
+            <div class="kv">${kv('Date', d.date)}${kv('Total', money(d.total))}${kv('Company', d.company)}${kv('Company GSTIN', d.gst)}
+              ${kv('Customer', d.client)}${kv('Customer mobile', d.clientMobile)}${kv('Tax %', d.tax)}${kv('Validity', d.validity)}
+              ${kv('Company contact', [d.phone, d.email].filter(Boolean).join(' · '), true)}${kv('Company address', d.address, true)}
+              ${kv('Last updated', d.updatedAt ? new Date(d.updatedAt).toLocaleString() : '')}${kv('Display mode', String(d.simpleMode) === 'true' ? 'Simple' : 'Detailed')}</div>
+            <div class="tablewrap"><table class="items"><thead><tr><th>#</th><th>Item</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead><tbody>${items || '<tr><td colspan="5">No items</td></tr>'}</tbody></table></div>
+            <div class="kv" style="margin-top:16px">${kv('Public notes (printed)', d.notes, true)}</div>
+            <div class="internal"><label style="color:var(--bad)">🔒 Internal note (admin only)</label><textarea id="dNote" rows="4">${esc(d.internalNote)}</textarea>
+              <label style="margin-top:10px">Payment status</label>
+              <select id="dStatus">${['Pending', 'Partial', 'Paid'].map(s => `<option${s === d.paymentStatus ? ' selected' : ''}>${s}</option>`).join('')}</select></div>
+            <button class="btn" id="dSave" style="width:100%">Save changes</button>
+          </div></aside>`;
+        $('dSave').onclick = async () => {
+          $('dSave').disabled = true;
+          try { await api('adminUpdate', { docType: type, docNo: no, internalNote: $('dNote').value, paymentStatus: $('dStatus').value }); toast('Saved'); closeDrawer(); load(); }
+          catch (e) { if (e instanceof AuthError) { store.del(TOKEN_KEY); showLogin('Session expired.'); } else { toast(e.message); $('dSave').disabled = false; } }
+        };
+      } catch (e) {
+        if (e instanceof AuthError) { store.del(TOKEN_KEY); showLogin('Session expired. Please sign in again.'); }
+        else { closeDrawer(); toast(e.message); }
+      }
+    }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+
+    boot();
+  </script>
+</body>
+</html>
