@@ -823,6 +823,7 @@
       const tk = lsGet(ADMIN_TOKEN_KEY); if (tk) body.token = tk;
       const res = await fetch(sheetUrl(), { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
       let json; try { json = JSON.parse(await res.text()); } catch (e) { throw new Error('Invalid response from Google Apps Script.'); }
+      if (!json.ok && /^Unknown action/.test(json.error || '')) throw new Error('Backend is outdated — paste the latest google_sheet_apps_script_v2.gs and deploy a NEW VERSION.');
       if (!json.ok) throw new Error(json.error || 'Request failed');
       return json;
     }

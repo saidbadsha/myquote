@@ -34,6 +34,7 @@ Sheets automatically create hongi:
 
 const SS = SpreadsheetApp.getActiveSpreadsheet();
 
+const API_VERSION = 5;   // bump when the frontend needs new backend actions
 const ADMIN_USERNAME = 'admin@email.com';
 const SESSION_TTL_SEC = 6 * 60 * 60;          // CacheService max is 21600
 const MAX_FAILED_LOGINS = 5;
@@ -96,7 +97,7 @@ function ensureSheet_(name, headers, isDoc) {
 
 function doGet(e) {
   setup_();
-  return json_({ok:true,message:'Quotation & Invoice Maker API v4 is running'});
+  return json_({ok:true,message:'Quotation & Invoice Maker API v' + API_VERSION + ' is running',version:API_VERSION});
 }
 
 function doPost(e) {
@@ -106,7 +107,7 @@ function doPost(e) {
     const sess = getSession_(data.token);
     switch(data.action) {
       case 'ping':
-        return json_({ok:true,message:'Connected',admin:!!sess});
+        return json_({ok:true,message:'Connected (backend v' + API_VERSION + ')',version:API_VERSION,admin:!!sess});
       case 'getItems':
         return json_({ok:true,items:getItems_()});
       case 'saveDocument':

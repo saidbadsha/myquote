@@ -2785,7 +2785,7 @@ Quotation is valid for the period mentioned above.</textarea>
       const url = $('sheetUrl').value.trim(); if (!url) throw new Error('Google Apps Script Web App URL missing in Settings.');
       const body = { action, ...payload }; const tk = adminToken(); if (tk) body.token = tk;
       const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
-      const text = await res.text(); let j; try { j = JSON.parse(text) } catch (e) { throw new Error('Invalid response from Apps Script.') }; if (!j.ok) throw new Error(j.error || 'Sheet operation failed'); return j;
+      const text = await res.text(); let j; try { j = JSON.parse(text) } catch (e) { throw new Error('Invalid response from Apps Script.') }; if (!j.ok) { if (/^Unknown action/.test(j.error || '')) throw new Error('Backend is outdated — paste the latest google_sheet_apps_script_v2.gs and deploy a NEW VERSION (see README).'); throw new Error(j.error || 'Sheet operation failed'); } return j;
     }
 
     function documentPayload() {
@@ -2936,7 +2936,7 @@ Quotation is valid for the period mentioned above.</textarea>
     }
 
     async function testSheet() {
-      try { const j = await api('ping'); $('sheetTest').textContent = 'Connected: ' + (j.message || 'Google Sheet ready') } catch (e) { $('sheetTest').textContent = 'Error: ' + e.message }
+      try { const j = await api('ping'); $('sheetTest').textContent = (j.version >= 5 ? 'Connected: ' : '⚠ Outdated backend — redeploy a NEW VERSION of the latest script. ') + (j.message || 'Google Sheet ready') } catch (e) { $('sheetTest').textContent = 'Error: ' + e.message }
     }
 
     // ─── New Document ───
