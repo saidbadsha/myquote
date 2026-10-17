@@ -86,6 +86,11 @@
     .items th, .items td { padding: 7px 8px }
     .items tbody tr { cursor: default }
     .internal { border: 1px dashed #f04438; background: #fffbfa; border-radius: 12px; padding: 12px 14px; margin-bottom: 14px }
+    .ed input, .ed select, .ed textarea { padding: 7px 9px }
+    .ed .items input { padding: 5px 7px }
+    .ed .items td { padding: 4px 4px }
+    .etot { background: #f2f4f7; border-radius: 10px; padding: 10px 12px; margin: 12px 0 16px; font-size: 13px }
+    .etot div { display: flex; justify-content: space-between; padding: 2px 0 } .etot .g { font-weight: 700; font-size: 15px; border-top: 1px solid #d0d5dd; margin-top: 4px; padding-top: 6px }
     .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #101828; color: #fff; padding: 10px 16px; border-radius: 10px; z-index: 60; font-size: 13px }
 
     .tabs { display: flex; gap: 6px; margin-bottom: 14px }
@@ -187,6 +192,7 @@
   <div id="modalRoot"></div>
   <div id="drawerRoot"></div>
 
+  <script src="qm-calc.js"></script>
   <script>
     // The Apps Script URL is not a secret (it is also used by index.html); it can be overridden per browser.
     const DEFAULT_API = 'https://script.google.com/macros/s/AKfycbxu4GoFsE9Mwb3pHzP37UHIV8GbKfA2EvQBh3F0KBF4-z7c4yDUlamsm4MSfdjTmQfc/exec';
@@ -198,7 +204,7 @@
       del: k => { try { localStorage.removeItem(k) } catch (e) { } }
     };
     const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    const money = (n, cur) => (cur || '₹') + ' ' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const money = (n, cur) => QMCalc.fmt(n, cur);   // whole numbers, same rule as the app and backend
     const apiUrl = () => store.get(API_KEY) || DEFAULT_API;
 
     class AuthError extends Error { }
@@ -239,6 +245,8 @@
       try {
         const j = await api('adminLogin', { username: $('user').value.trim(), password: $('pass').value, token: '' });
         store.set(TOKEN_KEY, j.token);
+        const next = new URLSearchParams(location.search).get('next');
+        if (['index.html', 'question_maker.html'].includes(next)) { location.href = next; return; }   // back to where you came from
         await enterDashboard(j.username);
       } catch (err) { showLogin(err.message); }
       finally { b.disabled = false; b.textContent = 'Sign in'; }
@@ -328,21 +336,23 @@
 
     // ── Record details ──
     function closeDrawer() { $('drawerRoot').innerHTML = ''; }
-    async function openDrawer(type, no) {
+    async function openDrawer(type, no, edit) {
       $('drawerRoot').innerHTML = '<div class="scrim" onclick="closeDrawer()"></div><aside class="drawer"><div class="hd"><h2>Loading…</h2></div></aside>';
       try {
         const { doc: d, siblings } = await api('adminGet', { docType: type, docNo: no });
         const cur = d.currency || '₹';
-        const items = (d.items || []).map((x, i) => `<tr><td>${i + 1}</td><td>${esc(x.name)}</td><td class="num">${esc(x.q)}</td><td class="num">${money(x.rate, cur)}</td><td class="num">${money(x.amount, cur)}</td></tr>`).join('');
+        const items = (d.items || []).map((x, i) => `<tr><td>${i + 1}</td><td>${esc(x.name)}</td><td class="num">${esc(x.q)}</td><td class="num">${money(x.rate, cur)}</td><td class="num">${money(x.amount, cur)}</td><td class="num">${money(QMCalc.profit([x]).total, cur)}</td></tr>`).join('');
+        if (edit) return renderEditor(type, no, d, siblings);
         const kv = (k, v, full) => `<div class="${full ? 'full' : ''}"><div class="k">${k}</div><div class="v">${esc(v) || '—'}</div></div>`;
         $('drawerRoot').innerHTML = `<div class="scrim" onclick="closeDrawer()"></div><aside class="drawer">
-          <div class="hd"><h2><span class="chip ${d.docType}">${d.docType === 'invoice' ? 'INVOICE' : 'QUOTATION'}</span> ${esc(d.docNo)}</h2><button class="btn ghost" onclick="closeDrawer()">Close</button></div>
+          <div class="hd"><h2><span class="chip ${d.docType}">${d.docType === 'invoice' ? 'INVOICE' : 'QUOTATION'}</span> ${esc(d.docNo)}</h2><span><button class="btn ghost" id="dEdit">Edit document</button> <button class="btn ghost" onclick="closeDrawer()">Close</button></span></div>
           <div class="bd">
             <div class="kv">${kv('Date', d.date)}${kv('Total', money(d.total, cur))}${kv('Company', d.company)}${kv('Company GSTIN', d.gst)}
-              ${kv('Customer', d.client)}${kv('Customer mobile', d.clientMobile)}${kv('Tax %', d.tax)}${kv('Validity', d.validity)}
+              ${kv('Customer', d.client)}${kv('Customer mobile', d.clientMobile)}${kv('Tax %', d.tax)}${kv('Discount', d.discount ? (d.discountType === 'amount' ? money(d.discount, cur) : d.discount + '%') : '—')}${kv('Validity', d.validity)}
               ${kv('Company contact', [d.phone, d.email].filter(Boolean).join(' · '), true)}${kv('Company address', d.address, true)}
               ${kv('Last updated', d.updatedAt ? new Date(d.updatedAt).toLocaleString() : '')}${kv('Display mode', String(d.simpleMode) === 'true' ? 'Simple' : 'Detailed')}</div>
-            <div class="tablewrap"><table class="items"><thead><tr><th>#</th><th>Item</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead><tbody>${items || '<tr><td colspan="5">No items</td></tr>'}</tbody></table></div>
+            <div class="tablewrap"><table class="items"><thead><tr><th>#</th><th>Item</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th><th class="num">Profit</th></tr></thead><tbody>${items || '<tr><td colspan="6">No items</td></tr>'}</tbody></table></div>
+            <div class="etot" style="margin-top:8px"><div class="g" style="border:0;margin:0;padding:0"><span>🔒 Total profit (internal)</span><b>${money(QMCalc.profit(d.items || []).total, cur)}</b></div></div>
             <div class="kv" style="margin-top:16px">${kv('Public notes (printed)', d.notes, true)}</div>
             ${siblings && siblings.length > 1 ? `<div class="kv" style="margin-top:6px"><div class="full"><div class="k">3-company comparison · ${esc(d.comparisonId)}</div>
               <table class="items" style="margin-top:6px"><tbody>${siblings.map(x => `<tr${x.docNo === d.docNo ? ' style="background:#f2f4f7"' : ''}><td><b>${esc(x.docNo)}</b></td><td>${esc(x.company)}</td><td class="num">${money(x.total, x.currency)}</td></tr>`).join('')}</tbody></table></div></div>` : ''}
@@ -351,6 +361,7 @@
               <select id="dStatus">${['Pending', 'Partial', 'Paid'].map(s => `<option${s === d.paymentStatus ? ' selected' : ''}>${s}</option>`).join('')}</select></div>
             <button class="btn" id="dSave" style="width:100%">Save changes</button>
           </div></aside>`;
+        $('dEdit').onclick = () => openDrawer(type, no, true);
         $('dSave').onclick = async () => {
           $('dSave').disabled = true;
           try { await api('adminUpdate', { docType: type, docNo: no, internalNote: $('dNote').value, paymentStatus: $('dStatus').value }); toast('Saved'); closeDrawer(); load(); }
@@ -362,6 +373,60 @@
       }
     }
     document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeDrawer(); $('modalRoot').innerHTML = ''; } });
+
+    // ── Full document editor (admin) ──
+    function renderEditor(type, no, d, siblings) {
+      const cur = d.currency || '₹';
+      const rowHtml = (it = {}) => `<tr data-c="${esc(it.c || 0)}"><td><input class="in" value="${esc(it.name)}" placeholder="Item"></td>
+        <td><input class="iq" type="number" min="0" step="1" value="${esc(it.q ?? 1)}" style="width:64px"></td>
+        <td><input class="ir" type="number" min="0" step="1" value="${esc(QMCalc.rnd(it.rate))}" style="width:90px"></td>
+        <td class="num ia" style="white-space:nowrap">0</td><td><button type="button" class="btn ghost del" style="padding:3px 9px">×</button></td></tr>`;
+      $('drawerRoot').innerHTML = `<div class="scrim" onclick="closeDrawer()"></div><aside class="drawer ed">
+        <div class="hd"><h2>Edit <span class="chip ${d.docType}">${d.docType === 'invoice' ? 'INV' : 'QT'}</span> ${esc(d.docNo)}</h2><button class="btn ghost" id="eCancel">Cancel</button></div>
+        <div class="bd">
+          <div class="err" id="eErr" hidden></div>
+          ${siblings && siblings.length > 1 ? `<div class="hintx" style="margin-bottom:10px">Part of comparison ${esc(d.comparisonId)}. Editing changes only this company's quotation.</div>` : ''}
+          <div class="fgrid">
+            <div class="full"><label>Company (cannot be changed)</label><input value="${esc(d.company)}" readonly></div>
+            <div><label>Date</label><input id="eDate" type="date" value="${esc(d.date)}"></div><div><label>Validity</label><input id="eVal" value="${esc(d.validity)}"></div>
+            <div><label>Customer</label><input id="eCli" value="${esc(d.client)}"></div><div><label>Customer mobile</label><input id="eMob" value="${esc(d.clientMobile)}"></div>
+          </div>
+          <label style="margin-top:14px">Items</label>
+          <div class="tablewrap"><table class="items"><thead><tr><th>Item</th><th>Qty</th><th>Rate</th><th class="num">Amount</th><th></th></tr></thead><tbody id="eItems">${(d.items || []).map(rowHtml).join('')}</tbody></table></div>
+          <button type="button" class="btn ghost" id="eAdd" style="margin:8px 0 12px">+ Add item</button>
+          <div class="fgrid">
+            <div><label>Tax %</label><input id="eTax" type="number" min="0" max="100" step="0.01" value="${esc(d.tax || 0)}"></div>
+            <div><label>Discount</label><div style="display:flex;gap:6px"><input id="eDisc" type="number" min="0" step="0.01" value="${esc(d.discount || 0)}"><select id="eDiscT" style="width:auto"><option value="percent"${d.discountType !== 'amount' ? ' selected' : ''}>%</option><option value="amount"${d.discountType === 'amount' ? ' selected' : ''}>flat</option></select></div></div>
+          </div>
+          <div class="etot" id="eTot"></div>
+          <label>Public notes (printed)</label><textarea id="eNotes" rows="3">${esc(d.notes)}</textarea>
+          <div class="internal" style="margin-top:12px"><label style="color:var(--bad)">🔒 Internal note (admin only)</label><textarea id="eNote" rows="3">${esc(d.internalNote)}</textarea>
+            <label style="margin-top:10px">Payment status</label>
+            <select id="eStatus">${['Pending', 'Partial', 'Paid'].map(x => `<option${x === d.paymentStatus ? ' selected' : ''}>${x}</option>`).join('')}</select></div>
+          <button class="btn" id="eSave" style="width:100%">Save changes</button>
+        </div></aside>`;
+      const items = () => [...document.querySelectorAll('#eItems tr')].map(tr => ({ name: tr.querySelector('.in').value.trim(), q: +tr.querySelector('.iq').value || 0,
+        rate: QMCalc.rnd(tr.querySelector('.ir').value), c: +tr.dataset.c || 0 }));
+      const recalc = () => {
+        const its = items();
+        document.querySelectorAll('#eItems tr').forEach((tr, i) => tr.querySelector('.ia').textContent = money(QMCalc.lineAmount({ q: its[i].q, rate: its[i].rate }), cur));
+        const t = QMCalc.totals(its.map(x => ({ q: x.q, rate: x.rate })), $('eTax').value, $('eDisc').value, $('eDiscT').value);
+        $('eTot').innerHTML = `<div><span>Subtotal</span><b>${money(t.subtotal, cur)}</b></div>${t.discount ? `<div><span>Discount</span><b>- ${money(t.discount, cur)}</b></div>` : ''}<div><span>Tax</span><b>${money(t.tax, cur)}</b></div><div class="g"><span>Total</span><b>${money(t.total, cur)}</b></div>`;
+      };
+      const drawer = document.querySelector('.drawer'); drawer.addEventListener('input', recalc); drawer.addEventListener('change', recalc);
+      $('eItems').addEventListener('click', e => { if (e.target.classList.contains('del')) { e.target.closest('tr').remove(); recalc(); } });
+      $('eAdd').onclick = () => { $('eItems').insertAdjacentHTML('beforeend', rowHtml()); recalc(); };
+      $('eCancel').onclick = () => openDrawer(type, no);
+      recalc();
+      $('eSave').onclick = async () => {
+        $('eSave').disabled = true; $('eErr').hidden = true;
+        try {
+          await api('adminSaveDocument', { docType: type, docNo: no, fields: { date: $('eDate').value, validity: $('eVal').value, client: $('eCli').value, clientMobile: $('eMob').value,
+            items: items(), tax: $('eTax').value, discount: $('eDisc').value, discountType: $('eDiscT').value, notes: $('eNotes').value, internalNote: $('eNote').value, paymentStatus: $('eStatus').value } });
+          toast('Saved'); await load(); openDrawer(type, no);
+        } catch (e) { if (authFail(e)) return; $('eErr').textContent = e.message; $('eErr').hidden = false; $('eSave').disabled = false; $('eErr').scrollIntoView({ block: 'nearest' }); }
+      };
+    }
 
     // ── Tabs ──
     function showTab(which) {

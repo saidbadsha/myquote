@@ -1,6 +1,7 @@
 // Run: node tests/backend.test.js
 const assert = require('assert');
 const { makeEnv } = require('./mock-env');
+const QMCalc = require('../qm-calc.js');
 
 const year = new Date().getFullYear();
 const doc = (o = {}) => Object.assign({
@@ -94,10 +95,11 @@ console.log('Numbering');
 }
 
 // ── Internal note privacy + admin auth ──
-console.log('Admin auth & privacy');
+console.log('Admin auth & privacy (strict mode: INTERNAL_NOTES_ADMIN_ONLY=1)');
 {
   const e = makeEnv();
   const pwd = e.setupAdmin();
+  e.props.INTERNAL_NOTES_ADMIN_ONLY = '1';
   test('password is strong, random, and not stored in plain text', () => {
     assert.ok(pwd.length >= 20 && /^[A-Za-z0-9_-]+$/.test(pwd));
     assert.ok(!JSON.stringify(e.props).includes(pwd));
@@ -212,6 +214,7 @@ console.log('Company management');
 console.log('3-company comparison');
 {
   const e = makeEnv(); const pw = e.setupAdmin();
+  e.props.INTERNAL_NOTES_ADMIN_ONLY = '1';
   const token = e.call({action: 'adminLogin', username: 'admin@email.com', password: pw}).token;
   ['A Co', 'B Co', 'C Co'].forEach((n, i) => e.call({action: 'adminSaveCompany', token, company: {name: n, phone: '123456', email: 'x@y.com', address: 'addr', currency: ['₹', '$', '€'][i], template: 'corporate', quotationFormat: n[0] + 'Q-{SEQ:3}'}}));
   const mk = (company, rates, extra = {}) => ({company, phone: '123456', isNew: true, currency: company === 'B Co' ? '$' : '₹',
@@ -222,7 +225,8 @@ console.log('3-company comparison');
     cmp = e.call({action: 'saveComparison', token, common, quotes: [mk('A Co', [100, 50]), mk('B Co', [110.5, 60]), mk('C Co', [150, 75])]});
     assert.ok(cmp.ok, cmp.error);
     assert.deepStrictEqual(cmp.results.map(r => r.docNo), ['AQ-001', 'BQ-001', 'CQ-001']);
-    assert.deepStrictEqual(cmp.results.map(r => r.total), [(200 + 200) * 1.18, (221 + 240) * 1.18, (300 + 300) * 1.18].map(x => Math.round(x * 100) / 100));
+    // whole numbers: B's 110.5 rate rounds to 111 -> 222+240=462, tax 83 -> 545
+    assert.deepStrictEqual(cmp.results.map(r => r.total), [472, 545, 708]);
     assert.strictEqual(e.sheets.Quotations.rows.length, 4);
     assert.ok(e.sheets.Quotations.rows.slice(1).every(r => r[20] === cmp.comparisonId && r[18] === 'margin 12%'));
   });
@@ -257,6 +261,131 @@ console.log('3-company comparison');
     assert.strictEqual(l.summary.quotationTotal, e.sheets.Quotations.rows.slice(1).reduce((s, r) => s + Number(r[15]), 0));
     assert.deepStrictEqual(l.summary.currencies.sort(), ['$', '₹']);
     assert.ok(l.rows.every(r => r.comparisonId === cmp.comparisonId));
+  });
+}
+
+console.log('Internal view (default: visible to staff form, still never public-printed)');
+{
+  const e = makeEnv();
+  test('default: note + status saved and fetched without admin login; ping reports mode', () => {
+    assert.strictEqual(e.call({action: 'ping'}).notesAdminOnly, false);
+    const s = e.call({action: 'saveDocument', docType: 'invoice', company: 'Staff Co', client: 'c', items: [{name: 'a', q: 2, c: 500, rate: 600}], tax: 0, internalNote: 'visible to staff', paymentStatus: 'Paid', isNew: true});
+    assert.ok(s.ok);
+    const f = e.call({action: 'fetchDocuments', docNo: s.docNo}).rows[0];
+    assert.strictEqual(f.internalNote, 'visible to staff'); assert.strictEqual(f.paymentStatus, 'Paid');
+    assert.strictEqual(f.items[0].profit, 200);
+    // update keeps/changes the note
+    e.call({action: 'saveDocument', docType: 'invoice', docNo: s.docNo, isNew: false, company: 'Staff Co', client: 'c', items: [{name: 'a', q: 2, c: 500, rate: 600}], tax: 0, internalNote: 'changed'});
+    assert.strictEqual(e.call({action: 'fetchDocuments', docNo: s.docNo}).rows[0].internalNote, 'changed');
+  });
+  test('strict switch turns admin-only back on (note hidden + not writable without login)', () => {
+    e.props.INTERNAL_NOTES_ADMIN_ONLY = '1';
+    assert.strictEqual(e.call({action: 'ping'}).notesAdminOnly, true);
+    const no = e.sheets.Invoices.rows[1][0];
+    assert.ok(!('internalNote' in e.call({action: 'fetchDocuments', docNo: no}).rows[0]));
+    e.call({action: 'saveDocument', docType: 'invoice', docNo: no, isNew: false, company: 'Staff Co', client: 'c', items: [{name: 'a', q: 1, c: 1, rate: 2}], tax: 0, internalNote: 'HACK'});
+    assert.strictEqual(e.sheets.Invoices.rows[1][18], 'changed');
+    e.props.INTERNAL_NOTES_ADMIN_ONLY = '0';
+  });
+}
+
+console.log('Whole-number money rules');
+{
+  const e = makeEnv(); const pw = e.setupAdmin();
+  const token = e.call({action: 'adminLogin', username: 'admin@email.com', password: pw}).token;
+  e.call({action: 'adminSaveCompany', token, company: {name: 'Comm Co', phone: '123456', email: 'a@b.com', address: 'x', currency: '₹', template: 'corporate'}});
+  test('rounding rule: half-up, symmetric, no float surprises', () => {
+    assert.deepStrictEqual([0.5, 1.5, 2.5, 1.005, 2.675, -0.5, -2.5, 1e-10].map(QMCalc.rnd), [1, 2, 3, 1, 3, -1, -3, 0]);
+  });
+  test('backend totals == qm-calc.js on 500 random documents (incl. discounts)', () => {
+    let seed = 12345; const rand = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+    for (let n = 0; n < 500; n++) {
+      const items = Array.from({length: 1 + Math.floor(rand() * 5)}, (_, i) => ({name: 'it' + i, q: Math.floor(rand() * 9) + 1, rate: Math.round(rand() * 500000) / 100}));
+      const tax = [0, 5, 12, 18, 28, 7.5][Math.floor(rand() * 6)], discType = rand() < 0.5 ? 'percent' : 'amount';
+      const discount = discType === 'percent' ? Math.round(rand() * 2500) / 100 : Math.round(rand() * 100000) / 100;
+      const r = e.call({action: 'saveDocument', token, docType: 'invoice', company: 'Comm Co', client: 'c', items, tax, discount, discountType: discType, isNew: true, date: '2026-10-17'});
+      const exp = QMCalc.totals(items.map(x => ({...x, rate: QMCalc.rnd(x.rate)})), tax, discount, discType);
+      assert.strictEqual(r.total, exp.total, JSON.stringify({items, tax, discount, discType}));
+      assert.ok(Number.isInteger(r.total));
+    }
+  });
+  test('stored items & totals are whole numbers; discount never exceeds subtotal', () => {
+    const rows = e.sheets.Invoices.rows.slice(1);
+    assert.ok(rows.every(r => Number.isInteger(Number(r[15])) && JSON.parse(r[16]).every(i => Number.isInteger(i.rate) && Number.isInteger(i.amount))));
+    const r = e.call({action: 'saveDocument', token, docType: 'invoice', company: 'Comm Co', client: 'c', items: [{name: 'a', q: 1, rate: 100}], tax: 18, discount: 500, discountType: 'amount', isNew: true});
+    assert.strictEqual(r.total, 0);
+  });
+  test('worked example: 3 x 33.33 + 10.4 line, 10% discount, 18% tax', () => {
+    const r = e.call({action: 'saveDocument', token, docType: 'quotation', company: 'Comm Co', client: 'c', tax: 18, discount: 10, discountType: 'percent', isNew: true,
+      items: [{name: 'a', q: 3, rate: 33.33}, {name: 'b', q: 1, rate: 10.4}]});
+    // rates -> 33, 10; amounts 99 + 10 = 109; discount 11 (10.9); taxable 98; tax 18 (17.64); total 116
+    assert.strictEqual(r.total, 116);
+  });
+  test('profit rule: unit = rate - cost, line = amount - qty x cost, rate from cost + profit%', () => {
+    assert.strictEqual(QMCalc.rateFromCost(500, 20), 600);               // the spec example
+    const p = QMCalc.profit([{name: 'a', q: 2, c: 500, rate: 600}, {name: 'b', q: 3, c: 99.5, rate: 120}]);
+    assert.deepStrictEqual(p.rows.map(r => [r.unit, r.line]), [[100, 200], [20, 61]]);   // b: 120-100=20/unit; 360-299(298.5) = 61
+    assert.strictEqual(p.total, 261);
+    // backend stores the same figures
+    const r = e.call({action: 'saveDocument', token, docType: 'invoice', company: 'Comm Co', client: 'c', items: [{name: 'a', q: 2, c: 500, rate: 600}], tax: 0, isNew: true});
+    const row = e.sheets.Invoices.rows[e.sheets.Invoices.rows.length - 1];
+    assert.strictEqual(r.total, 1200); assert.strictEqual(JSON.parse(row[16])[0].profit, 200);
+  });
+  test('commission feature is gone: no commission in company or document APIs', () => {
+    const all = JSON.stringify([e.call({action: 'getCompanies', token}), e.call({action: 'adminCompanies', token}), e.call({action: 'fetchDocuments', docNo: 'INV'})]);
+    assert.ok(!/ommission/.test(all));
+  });
+}
+
+console.log('Admin edit of existing documents');
+{
+  const e = makeEnv(); const pw = e.setupAdmin();
+  const token = e.call({action: 'adminLogin', username: 'admin@email.com', password: pw}).token;
+  const base = e.call({action: 'saveDocument', token, docType: 'invoice', company: 'Edit Co', phone: '111', email: 'e@e.com', address: 'Addr', gst: 'G1', client: 'Orig', clientMobile: '999', validity: '15 Days', tax: 18, notes: 'n', internalNote: 'secret', items: [{name: 'A', q: 2, c: 50, rate: 100}, {name: 'B', q: 1, c: 0, rate: 400}], isNew: true, date: '2026-10-17', currency: '$'});
+  const no = base.docNo;
+  const edit = f => e.call({action: 'adminSaveDocument', token, docType: 'invoice', docNo: no, fields: f});
+  test('requires admin; unknown doc rejected', () => {
+    assert.ok(!e.call({action: 'adminSaveDocument', docType: 'invoice', docNo: no, fields: {items: [{name: 'x', q: 1, rate: 1}]}}).ok);
+    assert.ok(!e.call({action: 'adminSaveDocument', token, docType: 'invoice', docNo: 'NOPE', fields: {items: [{name: 'x', q: 1, rate: 1}]}}).ok);
+  });
+  test('edit items/qty/rate/discount/tax/client → total recomputed & persisted, identity fields untouched', () => {
+    const r = edit({client: 'Changed', clientMobile: '888', tax: 12, discount: 50, discountType: 'amount', notes: 'new note', validity: '30 Days',
+      items: [{name: 'A', q: 3, rate: 150.4}, {name: 'B', q: 1, rate: 400}, {name: 'C', q: 2, rate: 25}]});
+    assert.ok(r.ok, r.error);
+    // 3*150=450, +400, +50 = 900; discount 50 -> 850; tax 12% = 102 -> 952
+    assert.strictEqual(r.total, 952);
+    assert.strictEqual(e.sheets.Invoices.rows.length, 2, 'edited in place, no duplicate row');
+    const row = e.sheets.Invoices.rows[1];
+    assert.deepStrictEqual([row[0], row[2], row[7], row[8], row[9], row[10], row[14], Number(row[15]), row[18], row[21], row[22], row[23]],
+      [no, 'Edit Co', 'Changed', '888', '30 Days', 12, 'new note', 952, 'secret', '$', 50, 'amount']);
+    assert.strictEqual(JSON.parse(row[16]).length, 3);
+    const f = e.call({action: 'fetchDocuments', docNo: no, token}).rows[0];
+    assert.strictEqual(f.total, 952); assert.strictEqual(f.discount, 50); assert.strictEqual(f.discountType, 'amount'); assert.strictEqual(f.internalNote, 'secret');
+    const l = e.call({action: 'adminList', token}); assert.strictEqual(l.summary.invoiceTotal, 952);
+  });
+  test('omitted fields are preserved (discount/type stay as stored)', () => {
+    assert.ok(edit({items: [{name: 'A', q: 10, rate: 100}]}).ok);   // no discount given: keeps 50 flat
+    const f = e.call({action: 'adminGet', token, docType: 'invoice', docNo: no}).doc;
+    assert.strictEqual(f.discount, 50); assert.strictEqual(f.discountType, 'amount'); assert.strictEqual(f.total, 1064);  // 1000-50=950, +12% = 114 -> 1064
+  });
+  test('item catalog is not altered by admin edits', () => {
+    assert.ok(e.sheets.ItemCatalog.rows.slice(1).every(r => r[0] !== 'C'));
+  });
+  test('internal note + payment status can be edited in the same call', () => {
+    assert.ok(edit({internalNote: 'updated secret', paymentStatus: 'Paid', discount: 0, items: [{name: 'A', q: 1, rate: 10}]}).ok);
+    const f = e.call({action: 'adminGet', token, docType: 'invoice', docNo: no}).doc;
+    assert.strictEqual(f.internalNote, 'updated secret'); assert.strictEqual(f.paymentStatus, 'Paid'); assert.strictEqual(f.total, 11);   // 10 + 12% tax (kept from the previous edit) = 11.2 -> 11
+  });
+  test('validation: no items, blank name, negative, bad tax/discount/status', () => {
+    for (const bad of [{items: []}, {items: [{name: ' ', q: 1, rate: 1}]}, {items: [{name: 'x', q: -1, rate: 1}]}, {items: [{name: 'x', q: 1, rate: -5}]},
+      {tax: 120, items: [{name: 'x', q: 1, rate: 1}]}, {discount: 150, discountType: 'percent', items: [{name: 'x', q: 1, rate: 1}]}, {paymentStatus: 'Weird', items: [{name: 'x', q: 1, rate: 1}]}])
+      assert.ok(!edit(bad).ok, JSON.stringify(bad));
+  });
+  test('company-scoped admin cannot edit other companies’ documents', () => {
+    e.props.ADMIN_COMPANIES = 'Someone Else';
+    const t2 = e.call({action: 'adminLogin', username: 'admin@email.com', password: pw}).token;
+    assert.ok(!e.call({action: 'adminSaveDocument', token: t2, docType: 'invoice', docNo: no, fields: {items: [{name: 'x', q: 1, rate: 1}]}}).ok);
+    e.props.ADMIN_COMPANIES = '*';
   });
 }
 console.log(`\n${passed} tests passed`);

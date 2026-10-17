@@ -55,6 +55,15 @@ A professional invoicing and quotation system with Google Sheets sync, auto-numb
 - **Question Maker** saves all 3 quotations in one step (one number per company, linked by a `ComparisonId`), can reload a comparison by any of its quotation numbers, and its PDF/Print buttons save first and then open the real document, so the company's own template, details, currency and number are used.
 - After updating `.gs`, redeploy as a **new version** so the added columns (`ComparisonId`, `Currency`) are created.
 
+### Money rules, profit & admin editing
+
+- **Whole numbers everywhere** (shared `qm-calc.js`, mirrored in the backend): rounded half-up at each level — line amount, discount, tax — so displayed figures always add up. Total = subtotal − discount + tax.
+- **Discount** (percent or flat) is a field on every document and shown on the printed copy.
+- **Profit (internal):** Rate = Cost + Cost × Profit% ÷ 100, Amount = Rate × Qty. The Create form shows profit per unit, per item and in total (updates as Cost, Profit % or Qty change). Profit and the Internal Note are screen-only: never in the document, print/PDF, JPEG or WhatsApp.
+- **Internal view switch:** by default the Internal Note, payment status and profit panel are visible to everyone using the app (it is the staff form). To require an admin login for them, set Script Property `INTERNAL_NOTES_ADMIN_ONLY` = `1`.
+- **Admin editing:** in the dashboard open a record → *Edit document* to change items, quantities, rates, discount, tax and other fields. Totals are recomputed by the backend; number, company and comparison link stay fixed.
+- The backend reports `version: 6`; the pages warn if the deployed script is older.
+
 ### Company-wise numbering
 
 **Settings → Document Numbering** sets invoice/quotation formats per company, e.g. `ACM/{YY}{MM}/{SEQ:4}`. Default stays `INV-{YYYY}-{SEQ:3}` / `QT-{YYYY}-{SEQ:3}`. Existing numbers are never changed; the server assigns the final number on save under a lock.

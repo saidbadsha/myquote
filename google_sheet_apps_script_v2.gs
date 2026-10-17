@@ -34,7 +34,7 @@ Sheets automatically create hongi:
 
 const SS = SpreadsheetApp.getActiveSpreadsheet();
 
-const API_VERSION = 5;   // bump when the frontend needs new backend actions
+const API_VERSION = 6;   // bump when the frontend needs new backend actions
 const ADMIN_USERNAME = 'admin@email.com';
 const SESSION_TTL_SEC = 6 * 60 * 60;          // CacheService max is 21600
 const MAX_FAILED_LOGINS = 5;
@@ -53,22 +53,65 @@ const COL = {
   docNo: 0, date: 1, company: 2, phone: 3, email: 4, address: 5, gst: 6,
   client: 7, clientMobile: 8, validity: 9, tax: 10, profit: 11, mode: 12,
   simpleMode: 13, notes: 14, total: 15, items: 16, updatedAt: 17,
-  internalNote: 18, paymentStatus: 19, comparisonId: 20, currency: 21
+  internalNote: 18, paymentStatus: 19, comparisonId: 20, currency: 21,
+  discount: 22, discountType: 23
 };
 const DOC_HEADERS = [
   'DocNo','Date','Company','Phone','Email','Address','GSTIN','Client','ClientMobile',
   'Validity','Tax','DefaultProfit','Mode','SimpleMode','Notes','Total','ItemsJSON',
-  'UpdatedAt','InternalNote','PaymentStatus','ComparisonId','Currency'
+  'UpdatedAt','InternalNote','PaymentStatus','ComparisonId','Currency','Discount','DiscountType'
 ];
 const DOC_COLS = DOC_HEADERS.length;
 const COMPANY_HEADERS = ['CompanyName','Phone','Email','Address','GSTIN','Currency','Template','UpdatedAt','InvoiceFormat','QuotationFormat'];
 const COUNTER_HEADERS = ['DocType','Year','LastNumber','Pool'];
 
+// ─── Money rules (mirror of qm-calc.js — whole numbers, half-up, rounded at every level) ───
+
+function rnd_(x) {
+  const n = Number(x);
+  if (!isFinite(n)) return 0;
+  return n < 0 ? -Math.round(-n + 1e-9) : Math.round(n + 1e-9);
+}
+
+function lineAmount_(item) {
+  const a = item.amount;
+  return (a !== undefined && a !== null && a !== '') ? rnd_(a) : rnd_((Number(item.q) || 0) * rnd_(item.rate));
+}
+
+function totals_(items, taxPct, discount, discountType) {
+  const subtotal = (items || []).reduce((s, x) => s + lineAmount_(x), 0);
+  let disc = discountType === 'amount' ? rnd_(discount) : rnd_(subtotal * (Number(discount) || 0) / 100);
+  disc = Math.min(Math.max(disc, 0), subtotal);
+  const taxable = subtotal - disc;
+  const tax = rnd_(taxable * (Number(taxPct) || 0) / 100);
+  return {subtotal:subtotal, discount:disc, taxable:taxable, tax:tax, total:taxable + tax};
+}
+
+// Items with whole-number rate/amount, as stored in the sheet.
+function normalizeItems_(items) {
+  return (items || []).map(x => {
+    const q = Number(x.q) || 0, rate = rnd_(x.rate);
+    const amount = lineAmount_(Object.assign({}, x, {q:q, rate:rate}));
+    // profit = what the customer pays minus cost (whole numbers); internal only, never printed
+    return Object.assign({}, x, {q:q, rate:rate, amount:amount, profit:amount - rnd_(q * (Number(x.c) || 0))});
+  });
+}
+
+// Internal view = internal note, payment status and the profit breakdown in the staff form.
+// Default: visible to everyone using the app (it is the internal form; it is never printed or exported).
+// Strict: set Script Property INTERNAL_NOTES_ADMIN_ONLY = 1 to require an admin session for them.
+function internalStrict_() {
+  return PropertiesService.getScriptProperties().getProperty('INTERNAL_NOTES_ADMIN_ONLY') === '1';
+}
+function internalAllowed_(sess, company) {
+  return internalStrict_() ? !!(sess && companyAllowed_(sess, company)) : true;
+}
+
 // ─── Setup ───
 
 function setup_() {
   const cache = CacheService.getScriptCache();
-  if (cache.get('setup_v5')) return;
+  if (cache.get('setup_v6')) return;
 
   ensureSheet_('CompanyDetails', COMPANY_HEADERS, false);
   ensureSheet_('Invoices', DOC_HEADERS, true);
@@ -76,7 +119,7 @@ function setup_() {
   ensureSheet_('ItemCatalog', ['ItemName','CostRate','DefaultProfit','LastRate','UpdatedAt'], false);
   ensureSheet_('DocCounters', COUNTER_HEADERS, false);
 
-  cache.put('setup_v5', '1', 600);
+  cache.put('setup_v6', '1', 600);
 }
 
 // Creates the sheet if missing; otherwise only rewrites the header row (data untouched).
@@ -90,6 +133,7 @@ function ensureSheet_(name, headers, isDoc) {
     // Rewriting the labels fixes that without touching any data row.
     if (sh.getMaxColumns() < headers.length) sh.insertColumnsAfter(sh.getMaxColumns(), headers.length - sh.getMaxColumns());
     sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+    if (name === 'CompanyDetails' && sh.getMaxColumns() > headers.length && sh.getRange(1, headers.length + 1).getValue() === 'CommissionPercent') sh.getRange(1, headers.length + 1).clearContent();   // feature removed
   }
   if (isDoc) sh.getRange(1, 1, sh.getMaxRows(), 1).setNumberFormat('@'); // keep DocNo as text
   return sh;
@@ -107,7 +151,7 @@ function doPost(e) {
     const sess = getSession_(data.token);
     switch(data.action) {
       case 'ping':
-        return json_({ok:true,message:'Connected (backend v' + API_VERSION + ')',version:API_VERSION,admin:!!sess});
+        return json_({ok:true,message:'Connected (backend v' + API_VERSION + ')',version:API_VERSION,admin:!!sess,notesAdminOnly:internalStrict_()});
       case 'getItems':
         return json_({ok:true,items:getItems_()});
       case 'saveDocument':
@@ -119,9 +163,9 @@ function doPost(e) {
       case 'fetchDocuments':
         return json_(fetchDocuments_(data.docNo||'', data.name||'', data.mobile||'', data.docType||'', sess));
       case 'getCompany':
-        return json_(getCompany_(data.name));
+        return json_(getCompany_(data.name, sess));
       case 'getCompanies':
-        return json_(getCompanies_());
+        return json_(getCompanies_(sess));
       case 'saveCompany':
         return json_(saveCompany_(data.company, sess));
       case 'getClients':
@@ -144,6 +188,8 @@ function doPost(e) {
         return json_(requireAdmin_(sess) || adminCompanies_(sess));
       case 'adminSaveCompany':
         return json_(requireAdmin_(sess) || adminSaveCompany_(data, sess));
+      case 'adminSaveDocument':
+        return json_(requireAdmin_(sess) || adminSaveDocument_(data, sess));
       case 'adminUpdate':
         return json_(requireAdmin_(sess) || adminUpdate_(data, sess));
       default:
@@ -300,7 +346,7 @@ function readCompanies_() {
 function normName_(s) { return String(s || '').trim().toLowerCase(); }
 
 // With `name`: that company. Without: the first one (legacy behaviour).
-function getCompany_(name) {
+function getCompany_(name, sess) {
   const list = readCompanies_();
   if (!list.length) return {ok:true,company:null};
   if (name) {
@@ -310,7 +356,7 @@ function getCompany_(name) {
   return {ok:true,company:list[0]};
 }
 
-function getCompanies_() {
+function getCompanies_(sess) {
   return {ok:true, companies: readCompanies_()};
 }
 
@@ -410,9 +456,7 @@ function saveDocument_(d, sess) {
 function saveDocumentCore_(d, sess, opts) {
   const type = (d.docType || 'quotation').toLowerCase() === 'invoice' ? 'invoice' : 'quotation';
   const sh = SS.getSheetByName(docSheetName_(type));
-  const items = d.items || [];
-  const subtotal = items.reduce((s,x) => s + Number(x.amount || 0), 0);
-  const total = Math.round(subtotal * (1 + Number(d.tax || 0) / 100) * 100) / 100;
+  const items = normalizeItems_(d.items);
 
   let docNo = String(d.docNo || '').trim();
   let rowNo = docNo ? findDocRow_(sh, docNo) : -1;
@@ -437,19 +481,22 @@ function saveDocumentCore_(d, sess, opts) {
   // Internal note & payment status are admin-only: anonymous saves keep what is stored.
   let internalNote = prev ? String(prev[COL.internalNote] || '') : '';
   let paymentStatus = prev ? String(prev[COL.paymentStatus] || '') : '';
-  if (sess && companyAllowed_(sess, d.company)) {
+  if (internalAllowed_(sess, d.company)) {
     if (d.internalNote != null) internalNote = String(d.internalNote);
     if (d.paymentStatus && PAYMENT_STATUSES.indexOf(d.paymentStatus) >= 0) paymentStatus = d.paymentStatus;
   }
   if (!paymentStatus) paymentStatus = 'Pending';
   const comparisonId = String(d.comparisonId || (prev ? prev[COL.comparisonId] : '') || '');
   const currency = String(d.currency || (prev ? prev[COL.currency] : '') || '');
+  const discount = d.discount != null && d.discount !== '' ? Math.max(0, Number(d.discount) || 0) : (prev ? Number(prev[COL.discount] || 0) : 0);
+  const discountType = (d.discountType === 'amount' || d.discountType === 'percent') ? d.discountType : (prev && prev[COL.discountType] ? String(prev[COL.discountType]) : 'percent');
+  const total = totals_(items, d.tax, discount, discountType).total;
 
   const row = [
     docNo, d.date, d.company, d.phone, d.email, d.address, d.gst,
     d.client, d.clientMobile, d.validity, d.tax, d.profit, d.mode,
     d.simpleMode, d.notes, total, JSON.stringify(items), new Date(),
-    internalNote, paymentStatus, comparisonId, currency
+    internalNote, paymentStatus, comparisonId, currency, discount, discountType
   ];
 
   if (rowNo > 0) sh.getRange(rowNo, 1, 1, row.length).setValues([row]);
@@ -468,8 +515,6 @@ function newComparisonId_() {
   const d = new Date();
   return 'CMP-' + d.getFullYear() + ('0' + (d.getMonth() + 1)).slice(-2) + ('0' + d.getDate()).slice(-2) + '-' + randomHex_(6).toUpperCase();
 }
-
-function round2_(n) { return Math.round(Number(n || 0) * 100) / 100; }
 
 // Saves every quotation of a comparison under ONE lock, validating first so a
 // failure never leaves a half-saved set. Company 1 (quotes[0]) is the base: only
@@ -507,7 +552,7 @@ function saveComparison_(d, sess) {
     }
     const cmpId = String(d.comparisonId || '') || newComparisonId_();
     const results = quotes.map((q, i) => {
-      const items = (q.items || []).map(x => Object.assign({}, x, {amount: round2_(Number(x.q || 0) * Number(x.rate || 0))}));
+      const items = (q.items || []).map(x => { const rate = rnd_(x.rate), qn = Number(x.q) || 0; return Object.assign({}, x, {q: qn, rate: rate, amount: rnd_(qn * rate)}); });
       const r = saveDocumentCore_(Object.assign({}, d.common || {}, q, {docType:'quotation', comparisonId:cmpId, items:items}),
                                   sess, {skipCatalog: i > 0});
       r.company = q.company;
@@ -531,7 +576,7 @@ function getComparison_(q, sess) {
   }
   if (!id) return {ok:false, error:'This quotation is not part of a comparison.'};
   const quotes = rows.filter(r => String(r[COL.comparisonId]) === id)
-    .map(r => docFromRow_(r, 'quotation', !!(sess && companyAllowed_(sess, r[COL.company]))));
+    .map(r => docFromRow_(r, 'quotation', internalAllowed_(sess, r[COL.company])));
   if (!quotes.length) return {ok:false, error:'Comparison not found'};
   return {ok:true, comparisonId:id, quotes:quotes};
 }
@@ -739,7 +784,8 @@ function docFromRow_(r, type, admin) {
     email: r[COL.email], address: r[COL.address], gst: r[COL.gst],
     client: r[COL.client], clientMobile: r[COL.clientMobile], validity: r[COL.validity],
     tax: r[COL.tax], profit: r[COL.profit], mode: r[COL.mode], simpleMode: r[COL.simpleMode],
-    notes: r[COL.notes], total: r[COL.total], items: parseItems_(r[COL.items]),
+    notes: r[COL.notes], total: rnd_(r[COL.total]), items: parseItems_(r[COL.items]),
+    discount: Number(r[COL.discount] || 0), discountType: String(r[COL.discountType] || '') || 'percent',
     comparisonId: String(r[COL.comparisonId] || ''), currency: String(r[COL.currency] || '')
   };
   if (admin) {
@@ -766,7 +812,7 @@ function searchSheet_(sheetName, docType, docNo, name, mobile, sess) {
     const mobMatch = mobile && mob.includes(String(mobile).replace(/\D/g,''));
 
     if ((docNo && noMatch) || (name && nameMatch) || (mobile && mobMatch)) {
-      out.push(docFromRow_(r, docType, !!(sess && companyAllowed_(sess, r[COL.company]))));
+      out.push(docFromRow_(r, docType, internalAllowed_(sess, r[COL.company])));
     }
   });
 
@@ -798,7 +844,7 @@ function listRow_(x) {
     docType: x.type,
     docNo: String(r[COL.docNo]), date: fmtDate_(r[COL.date]), company: String(r[COL.company] || ''),
     client: String(r[COL.client] || ''), clientMobile: String(r[COL.clientMobile] || ''),
-    total: Number(r[COL.total] || 0), comparisonId: String(r[COL.comparisonId] || ''), currency: String(r[COL.currency] || '') || '₹',
+    total: rnd_(r[COL.total]), comparisonId: String(r[COL.comparisonId] || ''), currency: String(r[COL.currency] || '') || '₹',
     paymentStatus: String(r[COL.paymentStatus] || '') || 'Pending',
     internalNote: String(r[COL.internalNote] || ''),
     updatedAt: r[COL.updatedAt] instanceof Date ? r[COL.updatedAt].toISOString() : String(r[COL.updatedAt] || '')
@@ -897,6 +943,49 @@ function adminUpdate_(q, sess) {
     lock.releaseLock();
   }
   return {ok:true};
+}
+
+// Full edit of an existing document by an admin: items, quantities, rates, discount, tax,
+// client/validity/notes and the admin-only fields. Number, company and comparison link stay fixed.
+// Totals are always recomputed here, so the sheet is the single source of truth.
+function adminSaveDocument_(q, sess) {
+  const type = String(q.docType) === 'invoice' ? 'invoice' : 'quotation';
+  const f = q.fields || {};
+  const items = f.items;
+  if (!Array.isArray(items) || !items.length) return {ok:false, error:'A document needs at least one item.'};
+  for (let i = 0; i < items.length; i++) {
+    if (!String(items[i].name || '').trim()) return {ok:false, error:'Item ' + (i + 1) + ' has no name.'};
+    if (!(Number(items[i].q) >= 0) || !(Number(items[i].rate) >= 0)) return {ok:false, error:'Item ' + (i + 1) + ': quantity and rate must be 0 or more.'};
+  }
+  if (!(Number(f.tax || 0) >= 0 && Number(f.tax || 0) <= 100)) return {ok:false, error:'Tax % must be between 0 and 100.'};
+  if (f.discountType != null && f.discountType !== 'amount' && f.discountType !== 'percent') return {ok:false, error:'Invalid discount type.'};
+  if (!(Number(f.discount || 0) >= 0) || (f.discountType === 'percent' && Number(f.discount || 0) > 100)) return {ok:false, error:'Invalid discount.'};
+  if (f.paymentStatus != null && PAYMENT_STATUSES.indexOf(f.paymentStatus) < 0) return {ok:false, error:'Invalid payment status'};
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const sh = SS.getSheetByName(docSheetName_(type));
+    const rowNo = findDocRow_(sh, q.docNo || '');
+    if (rowNo < 0) return {ok:false, error:'Document not found'};
+    const prev = sh.getRange(rowNo, 1, 1, DOC_COLS).getValues()[0];
+    if (!companyAllowed_(sess, prev[COL.company])) return {ok:false, error:'Access denied for this company'};
+    const pick = (k, cur) => (f[k] != null ? f[k] : cur);
+    const merged = {
+      docType: type, docNo: String(prev[COL.docNo]), isNew: false,
+      date: pick('date', fmtDate_(prev[COL.date])), company: prev[COL.company],
+      phone: prev[COL.phone], email: prev[COL.email], address: prev[COL.address], gst: prev[COL.gst],
+      client: pick('client', prev[COL.client]), clientMobile: pick('clientMobile', prev[COL.clientMobile]),
+      validity: pick('validity', prev[COL.validity]), tax: pick('tax', prev[COL.tax]),
+      profit: prev[COL.profit], mode: prev[COL.mode], simpleMode: prev[COL.simpleMode],
+      notes: pick('notes', prev[COL.notes]), items: items, discount: f.discount, discountType: f.discountType,
+      internalNote: pick('internalNote', null), paymentStatus: f.paymentStatus
+    };
+    const r = saveDocumentCore_(merged, sess, {skipCatalog: true});
+    return r.ok ? {ok:true, docNo:r.docNo, total:r.total, message:'Saved'} : r;
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // ── Company management (admin) ──

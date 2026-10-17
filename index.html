@@ -103,8 +103,84 @@
       display: none
     }
 
+    body:not(.is-admin) .admin-only {
+      display: none !important
+    }
+
     body.is-admin .admin-only {
       display: block
+    }
+
+    body.is-admin .form-total.admin-only {
+      display: flex
+    }
+
+    /* Internal view: note, status, profit. Screen only — never in #quote, print, JPEG or WhatsApp. */
+    .internal-only {
+      display: none
+    }
+
+    body.is-internal .internal-only {
+      display: block
+    }
+
+    body:not(.is-internal) .internal-only {
+      display: none !important
+    }
+
+    #internalHint {
+      display: none;
+      font-size: 11px;
+      color: #667085;
+      margin-top: 10px
+    }
+
+    body:not(.is-internal) #internalHint {
+      display: block
+    }
+
+    .profit-box {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border: 1px solid #abefc6;
+      border-radius: 10px;
+      background: #f6fef9;
+      font-size: 12px
+    }
+
+    .profit-box table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 6px 0
+    }
+
+    .profit-box th {
+      text-align: right;
+      font-size: 10px;
+      color: #667085;
+      font-weight: 600;
+      padding: 3px 4px
+    }
+
+    .profit-box th:first-child,
+    .profit-box td:first-child {
+      text-align: left
+    }
+
+    .profit-box td {
+      padding: 3px 4px;
+      text-align: right;
+      border-top: 1px solid #d1fadf
+    }
+
+    .profit-box .ptotal {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: 700;
+      color: #067647;
+      padding-top: 6px;
+      border-top: 2px solid #abefc6
     }
 
     .admin-bar {
@@ -950,7 +1026,12 @@
       .toolbar,
       .resizer,
       .resizer-toggle,
-      .admin-only,
+      body .admin-only,
+      body .internal-only,
+      body.is-internal .internal-only,
+      #internalHint,
+      body.is-admin .admin-only,
+      body.is-admin .form-total.admin-only,
       .admin-bar,
       .toast-container {
         display: none !important
@@ -2143,7 +2224,7 @@
       <div class="sub">Create invoices &amp; quotations • Google Sheet sync • Export JPEG/PDF</div>
       <div class="admin-bar">
         <span id="adminState">Not signed in as admin</span>
-        <span><a id="adminLink" href="admin.html">Admin login</a><button id="adminLogoutBtn" style="display:none" onclick="adminLogout()">Logout</button></span>
+        <span><a id="adminLink" href="admin.html?next=index.html">Admin login</a><button id="adminLogoutBtn" style="display:none" onclick="adminLogout()">Logout</button></span>
       </div>
       <div class="tabs">
         <button class="tab active" onclick="showTab('create',this)">Create</button>
@@ -2208,6 +2289,8 @@
             <div><label>Date</label><input id="date" type="date"></div>
             <div><label>Validity</label><input id="validity" value="15 Days"></div>
             <div><label>Tax / GST %</label><input id="tax" type="number" min="0" step="0.01" value="0"></div>
+            <div><label>Discount</label><input id="discount" type="number" min="0" step="0.01" value="0"></div>
+            <div><label>Discount type</label><select id="discountType"><option value="percent">% of subtotal</option><option value="amount">Flat amount</option></select></div>
           </div>
         </div>
 
@@ -2246,7 +2329,11 @@
             </table>
           </div>
           <button class="btn secondary" style="width:100%;margin-top:9px" onclick="addItem()">+ Add Item</button>
-          <div class="form-total"><span id="formTotalLabel">Total (incl. tax)</span><b id="formTotal">0.00</b></div>
+          <div class="form-total"><span id="formTotalLabel">Total (after discount, incl. tax)</span><b id="formTotal">0</b></div>
+          <div class="profit-box internal-only" id="profitBox">
+            <b>🔒 Profit (internal — never printed)</b>
+            <div id="profitBody"></div>
+          </div>
           <div class="hint">Item name type karte waqt catalog ke matching items suggestions me aayenge. Saved rate
             auto-fill hoga.</div>
         </div>
@@ -2256,12 +2343,13 @@
           <label>Public Notes (Appears on Quotation / Invoice)</label>
           <textarea id="notes">Installation and other charges, if applicable, will be discussed separately.
 Quotation is valid for the period mentioned above.</textarea>
-          <div class="internal-box admin-only" id="internalBox">
-            <label style="color:#b42318;display:flex;align-items:center;gap:4px;">🔒 Internal Note <span style="font-weight:normal;font-size:10px;color:#667085;">(Admin only — never printed, exported or shown to the customer)</span></label>
+          <div class="internal-box internal-only" id="internalBox">
+            <label style="color:#b42318;display:flex;align-items:center;gap:4px;">🔒 Internal Note <span style="font-weight:normal;font-size:10px;color:#667085;">(Internal — never printed, exported or shown to the customer)</span></label>
             <textarea id="internalNote" placeholder="Internal notes, supplier costs, reference numbers..."></textarea>
             <label style="margin-top:8px">Payment Status</label>
             <select id="paymentStatus"><option>Pending</option><option>Partial</option><option>Paid</option></select>
           </div>
+          <div id="internalHint">🔒 Internal note, payment status and profit are admin-only on this server. <a href="admin.html?next=index.html" style="color:#0369a1;font-weight:600">Admin login</a></div>
         </div>
 
         <div class="section">
@@ -2428,9 +2516,10 @@ Quotation is valid for the period mentioned above.</textarea>
   </div>
   <div class="toast-container" id="toastContainer"></div>
 
+  <script src="qm-calc.js"></script>
   <script>
     const $ = id => document.getElementById(id);
-    const fields = ['company', 'phone', 'email', 'address', 'gst', 'currency', 'client', 'clientMobile', 'quoteNo', 'date', 'validity', 'tax', 'profit', 'mode', 'simpleMode', 'notes', 'internalNote', 'paymentStatus', 'quoteColor'];
+    const fields = ['company', 'phone', 'email', 'address', 'gst', 'currency', 'client', 'clientMobile', 'quoteNo', 'date', 'validity', 'tax', 'discount', 'discountType', 'profit', 'mode', 'simpleMode', 'notes', 'internalNote', 'paymentStatus', 'quoteColor'];
     const defaults = [['4 channel DVR', 1, 2400, ''], ['2MP Camera Dome', 4, 750, ''], ['SMPS', 1, 350, ''], ['Wire Bundle', 1, 1000, ''], ['BNC, DC, PVC Box', 1, 360, ''], ['500 GB HDD', 1, 1750, '']];
     let logoData = localStorage.getItem('quotationLogo') || '';
     let currentDocType = 'invoice';
@@ -2527,7 +2616,7 @@ Quotation is valid for the period mentioned above.</textarea>
     }
 
     function esc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
-    function money(n) { return ($('currency').value || '₹') + ' ' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
+    function money(n) { return QMCalc.fmt(n, $('currency').value || '₹') }   // whole numbers everywhere
     function calc(cost, p) { return $('mode').value === 'margin' ? (p >= 100 ? cost : cost / (1 - p / 100)) : cost * (1 + p / 100) }
 
     // ─── Document Type Selector ───
@@ -2644,6 +2733,12 @@ Quotation is valid for the period mentioned above.</textarea>
       $('adminLink').style.display = on ? 'none' : '';
       $('adminLogoutBtn').style.display = on ? '' : 'none';
     }
+    function setInternalUi(on) { document.body.classList.toggle('is-internal', !!on); }
+    // Internal view (note, status, profit) shows unless the server is in strict mode and nobody is signed in.
+    async function refreshInternalView() {
+      try { const j = await api('ping'); setInternalUi(!j.notesAdminOnly || j.admin); return j; }
+      catch (e) { setInternalUi(true); return null; }   // offline: the form still works
+    }
     async function initAdmin() {
       if (!adminToken()) return setAdminUi(false);
       try { const j = await api('adminMe'); setAdminUi(true, j.username); }
@@ -2652,25 +2747,28 @@ Quotation is valid for the period mentioned above.</textarea>
     async function adminLogout() {
       try { await api('adminLogout'); } catch (e) { }
       try { localStorage.removeItem(ADMIN_TOKEN_KEY); } catch (e) { }
-      $('internalNote').value = '';
       setAdminUi(false);
+      refreshInternalView();
     }
 
     // ─── Items ───
+    const rv = v => (v === null || v === undefined || v === '') ? '' : QMCalc.rnd(v);
     function addItem(data = ['New Item', 1, 0, '', null, null]) {
       const tr = document.createElement('tr');
       tr.innerHTML = `<td><input class="name" list="catalogList" value="${esc(data[0])}"></td>
  <td><input class="num qty" type="number" min="0" step="1" value="${data[1]}"></td>
  <td><input class="num cost" type="number" min="0" step="0.01" value="${data[2]}"></td>
  <td><input class="num ip" type="number" min="0" step="0.01" placeholder="Def" value="${data[3] ?? ''}"></td>
- <td><input class="num rate" type="number" min="0" step="0.01" value="${data[4] ?? ''}" title="Selling Rate"></td>
- <td><input class="num amount" type="number" min="0" step="0.01" value="${data[5] ?? ''}" title="Direct Amount"></td>
+ <td><input class="num rate" type="number" min="0" step="0.01" value="${rv(data[4])}" title="Selling Rate"></td>
+ <td><input class="num amount" type="number" min="0" step="0.01" value="${rv(data[5] ?? ((data[4] !== null && data[4] !== undefined && data[4] !== '') ? (+data[1] || 0) * QMCalc.rnd(data[4]) : null))}" title="Direct Amount"></td>
  <td><button class="del" onclick="this.closest('tr').remove();render()">×</button></td>`;
       $('items').appendChild(tr);
       const nameInput = tr.querySelector('.name');
       nameInput.addEventListener('change', () => applyCatalog(nameInput, tr));
       nameInput.addEventListener('input', () => applyCatalog(nameInput, tr));
       tr.querySelectorAll('input').forEach(x => x.addEventListener('input', e => onItemInput(e, tr)));
+      if (data[4] == null && (+data[2] || 0) > 0) onItemInput(null, tr);   // new row: derive rate/amount from cost + default profit
+      tr.querySelectorAll('.rate, .amount').forEach(el => el.addEventListener('change', () => { if (el.value !== '') el.value = QMCalc.rnd(el.value); }));
       render();
     }
 
@@ -2692,20 +2790,25 @@ Quotation is valid for the period mentioned above.</textarea>
     }
 
     function onItemInput(e, tr) {
+      const R = QMCalc.rnd;
       const qty = +tr.querySelector('.qty').value || 0, cost = +tr.querySelector('.cost').value || 0;
       const ip = tr.querySelector('.ip'), rate = tr.querySelector('.rate'), amount = tr.querySelector('.amount');
+      const pct = r => cost ? (((r - cost) / cost) * 100).toFixed(2) : '0';   // a percentage, not an amount
       if (e && e.target === amount && amount.value !== '') {
-        const a = +amount.value || 0;
-        rate.value = qty ? (a / qty).toFixed(2) : '0';
-        ip.value = cost ? (((rate.value - cost) / cost) * 100).toFixed(2) : '0';
+        const a = R(amount.value);                 // an amount typed directly is authoritative
+        rate.value = qty ? R(a / qty) : 0;
+        ip.value = pct(R(rate.value));
       } else if (e && e.target === rate && rate.value !== '') {
-        amount.value = (+rate.value * qty).toFixed(2);
-        ip.value = cost ? (((+rate.value - cost) / cost) * 100).toFixed(2) : '0';
+        const rt = R(rate.value);
+        amount.value = R(rt * qty);
+        ip.value = pct(rt);
+      } else if (e && e.target === tr.querySelector('.qty') && rate.value !== '') {
+        amount.value = R(R(rate.value) * qty);      // quantity changed: Amount = Rate x Qty, rate stays
       } else {
         const p = ip.value.trim() === '' ? (+$('profit').value || 0) : +ip.value;
-        const r = calc(cost, p);
-        rate.value = r.toFixed(2);
-        amount.value = (r * qty).toFixed(2);
+        const rt = R(calc(cost, p));
+        rate.value = rt;
+        amount.value = R(rt * qty);
       }
       render();
     }
@@ -2726,20 +2829,32 @@ Quotation is valid for the period mentioned above.</textarea>
       return [...$('items').querySelectorAll('tr')].map(tr => {
         const q = +tr.querySelector('.qty').value || 0;
         const c = +tr.querySelector('.cost').value || 0;
-        const r = +tr.querySelector('.rate').value || 0;
-        const a = +tr.querySelector('.amount').value || 0;
+        const r = QMCalc.rnd(+tr.querySelector('.rate').value || 0);
+        const aRaw = tr.querySelector('.amount').value;
+        const a = aRaw === '' ? QMCalc.rnd(q * r) : QMCalc.rnd(+aRaw || 0);   // empty amount = qty x rate
         const p = c ? ((r - c) / c * 100) : 0;
-        return { name: tr.querySelector('.name').value || 'Item', q, c, p, rate: r, amount: a, profit: a - q * c };
+        return { name: tr.querySelector('.name').value || 'Item', q, c, p, rate: r, amount: a, profit: a - QMCalc.rnd(q * c) };
       });
     }
 
     // ─── Preview Render ───
+    // Internal profit breakdown (screen only). Cost + profit% -> rate; profit = rate - cost per unit.
+    function renderProfit(items) {
+      const P = QMCalc.profit(items);
+      $('profitBody').innerHTML = `<table><thead><tr><th>Item</th><th>Cost</th><th>Profit / unit</th><th>Qty</th><th>Profit</th></tr></thead><tbody>${P.rows.map(r =>
+        `<tr><td>${esc(r.name)}</td><td>${money(r.cost)}</td><td>${money(r.unit)}</td><td>${r.q}</td><td><b>${money(r.line)}</b></td></tr>`).join('')}</tbody></table>
+        <div class="ptotal"><span>Total profit</span><span>${money(P.total)}</span></div>`;
+    }
+
     function render() {
-      const it = getItems(), subtotal = it.reduce((s, x) => s + x.amount, 0);
-      const taxP = +$('tax').value || 0, tax = subtotal * taxP / 100, total = subtotal + tax;
+      const it = getItems();
+      const T = QMCalc.totals(it, $('tax').value, $('discount').value, $('discountType').value);
+      const subtotal = T.subtotal, taxP = +$('tax').value || 0, tax = T.tax, total = T.total;
+      const discLabel = $('discountType').value === 'percent' ? ` (${+$('discount').value || 0}%)` : '';
       const simple = $('simpleMode').value === 'true';
       const docLabel = currentDocType === 'invoice' ? 'INVOICE' : 'QUOTATION';
       if ($('formTotal')) $('formTotal').textContent = money(total);
+      renderProfit(it);
 
       const rows = simple
         ? it.map((x, i) => `<tr><td class="center">${i + 1}</td><td>${esc(x.name)}</td><td class="center">${x.q}</td></tr>`).join('')
@@ -2761,7 +2876,7 @@ Quotation is valid for the period mentioned above.</textarea>
  <div class="meta"><div><h4>Prepared For</h4><p><b>${esc($('client').value)}</b></p><p>${esc($('clientMobile').value)}</p></div>
  <div><h4>${docLabel} Details</h4><p>Validity: ${esc($('validity').value)}</p><p>${simple ? 'Simple' : 'Detailed'} ${docLabel.toLowerCase()}</p></div></div>
  ${table}
- <div class="totals"><div class="tr"><span>${simple ? 'Total' : 'Subtotal'}</span><b>${money(subtotal)}</b></div>${taxP ? `<div class="tr"><span>GST / Tax (${taxP}%)</span><b>${money(tax)}</b></div>` : ''}<div class="tr total"><span>Grand Total</span><b>${money(total)}</b></div></div>
+ <div class="totals"><div class="tr"><span>${simple ? 'Total' : 'Subtotal'}</span><b>${money(subtotal)}</b></div>${T.discount ? `<div class="tr"><span>Discount${discLabel}</span><b>- ${money(T.discount)}</b></div>` : ''}${taxP ? `<div class="tr"><span>GST / Tax (${taxP}%)</span><b>${money(tax)}</b></div>` : ''}<div class="tr total"><span>Grand Total</span><b>${money(total)}</b></div></div>
  ${govtStamp}
  <div class="notes"><b>Notes & Terms</b><br>${esc($('notes').value).replace(/\n/g, '<br>')}</div><div class="sign"><div class="signline">Authorized Signatory</div></div>`;
       applyTemplate();
@@ -2802,6 +2917,8 @@ Quotation is valid for the period mentioned above.</textarea>
         clientMobile: $('clientMobile').value,
         validity: $('validity').value,
         tax: $('tax').value,
+        discount: $('discount').value,
+        discountType: $('discountType').value,
         profit: $('profit').value,
         mode: $('mode').value,
         simpleMode: $('simpleMode').value,
@@ -2936,7 +3053,7 @@ Quotation is valid for the period mentioned above.</textarea>
     }
 
     async function testSheet() {
-      try { const j = await api('ping'); $('sheetTest').textContent = (j.version >= 5 ? 'Connected: ' : '⚠ Outdated backend — redeploy a NEW VERSION of the latest script. ') + (j.message || 'Google Sheet ready') } catch (e) { $('sheetTest').textContent = 'Error: ' + e.message }
+      try { const j = await api('ping'); $('sheetTest').textContent = (j.version >= 6 ? 'Connected: ' : '⚠ Outdated backend — redeploy a NEW VERSION of the latest script. ') + (j.message || 'Google Sheet ready') } catch (e) { $('sheetTest').textContent = 'Error: ' + e.message }
     }
 
     // ─── New Document ───
@@ -2950,6 +3067,8 @@ Quotation is valid for the period mentioned above.</textarea>
       $('date').value = new Date().toISOString().slice(0, 10);
       $('validity').value = '15 Days';
       $('tax').value = '0';
+      $('discount').value = '0';
+      $('discountType').value = 'percent';
       $('profit').value = '20';
       $('simpleMode').value = 'false';
       $('internalNote').value = '';
@@ -2976,6 +3095,7 @@ Quotation is valid for the period mentioned above.</textarea>
           return `<div class="invoice-result" onclick='loadDocument(${JSON.stringify(r).replace(/'/g, "&#39;")})'>
     <div><span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;color:#fff;background:${typeColor}">${typeLabel}</span> <b>${esc(r.docNo || r.quoteNo || '')}</b> — ${esc(r.client || '')}</div>
     <div style="margin-top:4px">${esc(r.date || '')} · ${esc(r.clientMobile || '')} · ${money(+r.total || 0)}</div>
+    ${r.internalNote !== undefined ? `<div class="internal-only" style="margin-top:4px;font-size:11px;color:#b42318">🔒 ${r.internalNote ? esc(r.internalNote) : '<i>no internal note</i>'} · Profit ${money(QMCalc.profit(r.items || []).total)}</div>` : ''}
     <button class="btn btn-whatsapp" style="margin-top:6px;padding:6px 8px" onclick='event.stopPropagation();shareWhatsApp(${JSON.stringify(r).replace(/'/g, "&#39;")})'>Share on WhatsApp</button>
    </div>`;
         }).join('');
@@ -2990,6 +3110,8 @@ Quotation is valid for the period mentioned above.</textarea>
       $('internalNote').value = r.internalNote || '';
       $('paymentStatus').value = r.paymentStatus || 'Pending';
       if (r.currency) $('currency').value = r.currency;
+      $('discount').value = r.discount || 0;
+      $('discountType').value = r.discountType || 'percent';
       const keys = ['company', 'phone', 'email', 'address', 'gst', 'client', 'clientMobile', 'date', 'validity', 'tax', 'profit', 'mode', 'simpleMode', 'notes'];
       keys.forEach(k => { if (r[k] != null && $(k)) $(k).value = r[k] });
       // Use docNo or quoteNo
@@ -3043,7 +3165,8 @@ Quotation is valid for the period mentioned above.</textarea>
         await loadCompanyFromSheet(r.company);      // configured template, details & currency
         render();
         if (document.fonts && document.fonts.ready) await document.fonts.ready;
-        setTimeout(() => window.print(), 400);
+        if (new URLSearchParams(location.search).get('mode') === 'pdf') showToast('In the print dialog choose “Save as PDF” as the destination.');
+        setTimeout(() => window.print(), 900);
       } catch (e) { showToast(e.message, 'error'); }
     }
 
@@ -3052,6 +3175,7 @@ Quotation is valid for the period mentioned above.</textarea>
     $('simpleMode').value = 'false';
     initAdmin();
     loadCatalog();
+    refreshInternalView().then(j => { if (j && !(j.version >= 6)) showToast('Backend is outdated — deploy a NEW VERSION of the latest Apps Script (see README).', 'error'); });
     if (PRINT_JOB) {
       document.title = PRINT_JOB.no;
       runPrintJob();
@@ -3083,9 +3207,7 @@ Quotation is valid for the period mentioned above.</textarea>
       if (!raw) { alert('Client mobile number enter karein.'); return; }
       const phone = raw.length === 10 ? '91' + raw : raw;
       const items = getItems();
-      const total = items.reduce((sum, x) => sum + x.amount, 0);
-      const taxP = +$('tax').value || 0;
-      const grand = total + (total * taxP / 100);
+      const grand = QMCalc.totals(items, $('tax').value, $('discount').value, $('discountType').value).total;
       const simple = $('simpleMode').value === 'true';
       const docLabel = currentDocType === 'invoice' ? 'Invoice' : 'Quotation';
       const lines = [`Hello ${$('client').value || 'Client'},`, '', `${docLabel} No: ${$('quoteNo').value || ''}`, `Date: ${$('date').value || ''}`, '', `Please find your ${docLabel.toLowerCase()} details below.`, ...(items || []).map(x => simple ? `• ${x.name} — Qty: ${x.q}` : `• ${x.name} — ${x.q} × ${x.rate} = ${x.amount}`), '', `Grand Total: ${money(grand)}`, '', `Thank you, ${$('company').value || ''}`];

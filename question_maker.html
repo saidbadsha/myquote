@@ -519,7 +519,11 @@
     }
 
     .admin-only { display: none }
+    body:not(.is-admin) .admin-only { display: none !important }
     body.is-admin .admin-only { display: block }
+    .internal-only { display: none }
+    body.is-internal .internal-only { display: block }
+    body:not(.is-internal) .internal-only { display: none !important }
     .card-docno { font-size: 12px; font-weight: 700; color: #0369a1; margin-top: 4px; min-height: 16px }
     .save-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px }
     .save-bar input { max-width: 220px }
@@ -564,7 +568,7 @@
     </div>
     <div class="header-actions">
       <span class="badge-status" id="sheetStatusText">• Connecting…</span>
-      <a id="adminPill" href="admin.html" style="font-size:12px;font-weight:600;color:#0369a1;text-decoration:none">Admin login</a>
+      <a id="adminPill" href="admin.html?next=question_maker.html" style="font-size:12px;font-weight:600;color:#0369a1;text-decoration:none">Admin login</a>
       <button class="btn-sync" onclick="syncWithGoogleSheets()">Sync Now</button>
       <button class="btn-backup" onclick="exportBackupData()">Backup</button>
     </div>
@@ -686,8 +690,8 @@
           <label>Tax %</label>
           <input type="number" id="taxInput" class="input-field" value="0" min="0" step="0.01" oninput="calculateTotals()">
         </div>
-        <div class="field-group admin-only" style="grid-column: span 2;">
-          <label style="color:#b42318;display:flex;align-items:center;gap:4px;">🔒 Internal Note <span style="font-weight:normal;font-size:10px;color:#64748b;">(Admin Only — Omitted from PDF/Print)</span></label>
+        <div class="field-group internal-only" style="grid-column: span 2;">
+          <label style="color:#b42318;display:flex;align-items:center;gap:4px;">🔒 Internal Note <span style="font-weight:normal;font-size:10px;color:#64748b;">(Internal — omitted from PDF/Print)</span></label>
           <input type="text" id="internalNoteInput" class="input-field" placeholder="Administrative reference, internal costs, supplier notes...">
         </div>
       </div>
@@ -739,7 +743,7 @@
           <div class="card-template-tag" id="cardCompany1Template">Template: —</div>
           <div class="card-docno" id="cardCompany1DocNo"></div>
           <div class="card-price-display" id="cardCompany1Total">₹ 0.00</div>
-          <div class="card-detail-info" id="cardCompany1Details">0 products · Tax 1.00%</div>
+          <div class="card-detail-info" id="cardCompany1Details">0 products · Tax 0%</div>
         </div>
         <div class="card-button-group">
           <button class="btn-pdf" onclick="generatePDF(1)">PDF</button>
@@ -755,7 +759,7 @@
           <div class="card-template-tag" id="cardCompany2Template">Template: —</div>
           <div class="card-docno" id="cardCompany2DocNo"></div>
           <div class="card-price-display" id="cardCompany2Total">₹ 0.00</div>
-          <div class="card-detail-info" id="cardCompany2Details">0 products · Tax 1.00%</div>
+          <div class="card-detail-info" id="cardCompany2Details">0 products · Tax 0%</div>
         </div>
         <div class="card-button-group">
           <button class="btn-pdf" onclick="generatePDF(2)">PDF</button>
@@ -771,7 +775,7 @@
           <div class="card-template-tag" id="cardCompany3Template">Template: —</div>
           <div class="card-docno" id="cardCompany3DocNo"></div>
           <div class="card-price-display" id="cardCompany3Total">₹ 0.00</div>
-          <div class="card-detail-info" id="cardCompany3Details">0 products · Tax 1.00%</div>
+          <div class="card-detail-info" id="cardCompany3Details">0 products · Tax 0%</div>
         </div>
         <div class="card-button-group">
           <button class="btn-pdf" onclick="generatePDF(3)">PDF</button>
@@ -797,6 +801,7 @@
   </div>
 
   <!-- Application Logic -->
+  <script src="qm-calc.js"></script>
   <script>
     const TEMPLATE_NAMES = {
       corporate: 'Corporate', govt: 'Government Formal', modern: 'Modern Minimal', navy: 'Elegant Navy',
@@ -809,7 +814,7 @@
     const $ = id => document.getElementById(id);
     const lsGet = k => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } };
     const sheetUrl = () => lsGet('sheetUrl') || lsGet('qm_api_url') || DEFAULT_API;
-    const round2 = n => Math.round((Number(n) || 0) * 100) / 100;
+    const R = QMCalc.rnd;   // whole-number rule shared with the app and the backend
 
     let companiesList = [];
     let productCatalog = [];
@@ -835,6 +840,12 @@
 
     // ─── Admin session (shared with index.html / admin.html) ───
     async function initAdmin() {
+      // Internal view (internal note) shows unless the server is in strict admin-only mode and nobody is signed in.
+      try {
+        const j = await callSheetApi('ping');
+        document.body.classList.toggle('is-internal', !j.notesAdminOnly || j.admin);
+        if (!(j.version >= 6)) toast('Backend is outdated — deploy a NEW VERSION of the latest Apps Script (see README).', true);
+      } catch (e) { document.body.classList.add('is-internal'); }
       if (!lsGet(ADMIN_TOKEN_KEY)) return;
       try {
         const j = await callSheetApi('adminMe');
@@ -924,13 +935,14 @@
       tr.innerHTML = `
         <td><input type="text" class="prod-name" list="catalogList" value="${escapeHtml(name)}" placeholder="Select or type product" oninput="onProductInput(this)"></td>
         <td><input type="number" class="prod-qty" min="1" step="1" value="${qty}" oninput="calculateTotals()"></td>
-        <td><input type="number" class="prod-r1" min="0" step="0.01" value="${r1}" oninput="calculateTotals()"></td>
-        <td><input type="number" class="prod-r2" min="0" step="0.01" value="${r2}" oninput="calculateTotals()"></td>
-        <td><input type="number" class="prod-r3" min="0" step="0.01" value="${r3}" oninput="calculateTotals()"></td>
+        <td><input type="number" class="prod-r1" min="0" step="1" value="${R(r1)}" oninput="calculateTotals()"></td>
+        <td><input type="number" class="prod-r2" min="0" step="1" value="${R(r2)}" oninput="calculateTotals()"></td>
+        <td><input type="number" class="prod-r3" min="0" step="1" value="${R(r3)}" oninput="calculateTotals()"></td>
         <td><button class="btn-del-row" onclick="removeProductRow(this)">×</button></td>`;
       $('productTableBody').appendChild(tr);
       calculateTotals();
     }
+    document.addEventListener('change', e => { if (e.target.matches && e.target.matches('.prod-r1,.prod-r2,.prod-r3') && e.target.value !== '') { e.target.value = R(e.target.value); calculateTotals(); } });
     function removeProductRow(btn) { btn.closest('tr').remove(); calculateTotals(); }
 
     function onProductInput(inputEl) {
@@ -939,7 +951,7 @@
       const found = productCatalog.find(p => p.name.toLowerCase() === val);
       if (found) {
         // The catalog stores the Company 1 (base) rate; Companies 2 & 3 follow it until varied.
-        const rate = found.lastRate || found.cost || 0;
+        const rate = R(found.lastRate || found.cost || 0);
         tr.querySelector('.prod-r1').value = rate;
         tr.querySelector('.prod-r2').value = rate;
         tr.querySelector('.prod-r3').value = rate;
@@ -949,7 +961,7 @@
 
     function copyCompany1RatesToAll() {
       document.querySelectorAll('#productTableBody tr').forEach(tr => {
-        const r1 = parseFloat(tr.querySelector('.prod-r1').value) || 0;
+        const r1 = R(tr.querySelector('.prod-r1').value);
         tr.querySelector('.prod-r2').value = r1; tr.querySelector('.prod-r3').value = r1;
       });
       calculateTotals();
@@ -957,9 +969,9 @@
 
     function generateRandomVariations() {
       document.querySelectorAll('#productTableBody tr').forEach(tr => {
-        const r1 = parseFloat(tr.querySelector('.prod-r1').value) || 0;
-        tr.querySelector('.prod-r2').value = (r1 + Math.floor(Math.random() * 100) + 1).toFixed(2);
-        tr.querySelector('.prod-r3').value = (r1 + Math.floor(Math.random() * 100) + 1).toFixed(2);
+        const r1 = R(tr.querySelector('.prod-r1').value);
+        tr.querySelector('.prod-r2').value = r1 + Math.floor(Math.random() * 100) + 1;
+        tr.querySelector('.prod-r3').value = r1 + Math.floor(Math.random() * 100) + 1;
       });
       calculateTotals();
     }
@@ -967,16 +979,17 @@
     // ─── Calculations (identical to the backend: rounded line amounts, total rounded to 2dp) ───
     function companyCurrency(idx) { const c = companyByName($(`company${idx}Select`).value); return (c && c.currency) || '₹'; }
 
+    function itemsFor(idx) {
+      return [...document.querySelectorAll('#productTableBody tr')].map(tr => {
+        const q = parseFloat(tr.querySelector('.prod-qty').value) || 0;
+        const rate = R(tr.querySelector(`.prod-r${idx}`).value);
+        return { name: tr.querySelector('.prod-name').value.trim(), q, rate, amount: R(q * rate) };
+      });
+    }
     function computeTotals(idx) {
       const taxP = parseFloat($('taxInput').value) || 0;
-      let subtotal = 0;
-      document.querySelectorAll('#productTableBody tr').forEach(tr => {
-        const qty = parseFloat(tr.querySelector('.prod-qty').value) || 0;
-        const rate = parseFloat(tr.querySelector(`.prod-r${idx}`).value) || 0;
-        subtotal += round2(qty * rate);
-      });
-      subtotal = round2(subtotal);
-      return { subtotal, taxP, taxAmount: round2(subtotal * taxP / 100), grandTotal: round2(subtotal * (1 + taxP / 100)) };
+      const t = QMCalc.totals(itemsFor(idx), taxP, 0, 'percent');
+      return { subtotal: t.subtotal, taxP, taxAmount: t.tax, grandTotal: t.total };
     }
 
     function calculateTotals() {
@@ -984,13 +997,11 @@
       [1, 2, 3].forEach(i => {
         const t = computeTotals(i);
         $(`cardCompany${i}Total`).textContent = formatCurrency(t.grandTotal, companyCurrency(i));
-        $(`cardCompany${i}Details`).textContent = `${count} products · Tax ${t.taxP.toFixed(2)}%`;
+        $(`cardCompany${i}Details`).textContent = `${count} products · Tax ${t.taxP}%`;
       });
     }
 
-    function formatCurrency(val, cur) {
-      return (cur || '₹') + ' ' + val.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
+    function formatCurrency(val, cur) { return QMCalc.fmt(val, cur); }
     function escapeHtml(str) {
       return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
@@ -1003,10 +1014,10 @@
         const name = tr.querySelector('.prod-name').value.trim();
         if (!name) return;
         const q = parseFloat(tr.querySelector('.prod-qty').value) || 0;
-        const rate = parseFloat(tr.querySelector(`.prod-r${idx}`).value) || 0;
+        const rate = R(tr.querySelector(`.prod-r${idx}`).value);
         const cat = productCatalog.find(p => p.name.toLowerCase() === name.toLowerCase());
         const cost = cat ? Number(cat.cost) || 0 : 0;
-        items.push({ name, q, c: cost, p: cost ? (rate - cost) / cost * 100 : 0, rate, amount: round2(q * rate) });
+        items.push({ name, q, c: cost, p: cost ? (rate - cost) / cost * 100 : 0, rate, amount: R(q * rate) });
       });
       return {
         company: c.name || '', phone: c.phone || '', email: c.email || '', address: c.address || '', gst: c.gst || '',
@@ -1037,7 +1048,7 @@
               client: $('clientInput').value.trim(), clientMobile: saved.mobile, date: $('dateInput').value, validity: $('validityInput').value,
               tax: parseFloat($('taxInput').value) || 0, profit: 0, mode: 'markup', simpleMode: 'false',
               notes: saved.notes || 'Installation and other charges, if applicable, will be discussed separately.\nQuotation is valid for the period mentioned above.',
-              internalNote: document.body.classList.contains('is-admin') ? $('internalNoteInput').value : null
+              internalNote: document.body.classList.contains('is-internal') ? $('internalNoteInput').value : null
             },
             quotes: [1, 2, 3].map(buildQuote)
           });
@@ -1076,14 +1087,19 @@
     }
 
     // ─── Print / PDF: save first, then open the real document (company template, details, currency, number) ───
-    async function printQuotation(idx) {
+    async function printQuotation(idx, mode) {
       const win = window.open('', '_blank');           // opened synchronously so pop-up blockers allow it
-      const ok = await saveAll(true);
+      if (win) win.document.write('<p style="font:14px sans-serif;padding:24px">Saving quotation and preparing the document…</p>');
+      let ok = false;
+      try { ok = await saveAll(true); } catch (e) { toast('Could not prepare the document: ' + e.message, true); }
       if (!ok) { if (win) win.close(); return; }
-      const url = 'index.html?print=1&type=quotation&no=' + encodeURIComponent(saved.docNos[idx - 1]);
-      if (win) win.location.href = url; else location.href = url;
+      const no = saved.docNos[idx - 1];
+      if (!no) { if (win) win.close(); toast('Quotation number missing — save failed.', true); return; }
+      const url = 'index.html?print=1&type=quotation&mode=' + (mode || 'print') + '&no=' + encodeURIComponent(no);
+      if (win) win.location.href = url;
+      else { toast('Pop-ups are blocked — opening the document in this tab.', true); setTimeout(() => { location.href = url; }, 900); }
     }
-    function generatePDF(idx) { return printQuotation(idx); }
+    function generatePDF(idx) { return printQuotation(idx, 'pdf'); }
 
     // ─── Sync & backup ───
     async function syncWithGoogleSheets() {
@@ -1097,7 +1113,7 @@
         companies: companiesList, products: productCatalog,
         client: $('clientInput').value, date: $('dateInput').value, tax: $('taxInput').value, comparisonId: saved.comparisonId
       };
-      if (document.body.classList.contains('is-admin')) data.internalNote = $('internalNoteInput').value;
+      if (document.body.classList.contains('is-internal')) data.internalNote = $('internalNoteInput').value;
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
       a.download = 'Question_Maker_Backup.json'; a.click();
